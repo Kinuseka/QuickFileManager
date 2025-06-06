@@ -9,6 +9,7 @@
 <body class="dark-mode"> <!-- Default to dark mode -->
     <div class="login-container">
         <form method="POST" action="{{ url_for('login') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <h2>File Manager Login</h2>
             {% if error %}
                 <p class="error-message">{{ error }}</p>

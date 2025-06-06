@@ -1,4 +1,16 @@
 activity_log: []
 app_password: test123
 managed_directory: ./managed_files
+security:
+  csrf_enabled: true
+  session_timeout: 3600
+server:
+  domain: ''
+  host: 0.0.0.0
+  port: 5000
+ssl:
+  cert_file: ''
+  enabled: false
+  force_https: false
+  key_file: ''
 users:

@@ -1,4 +1,5 @@
 Flask
 PyYAML
 Flask-SocketIO
-python-dotenv 
+python-dotenv
+Flask-WTF 

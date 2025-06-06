@@ -107,6 +107,24 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- CSRF Token Management ---
+    let csrfToken = null;
+    
+    async function getCSRFToken() {
+        if (!csrfToken) {
+            try {
+                const response = await fetch('/api/csrf-token');
+                if (response.ok) {
+                    const data = await response.json();
+                    csrfToken = data.csrf_token;
+                }
+            } catch (error) {
+                console.error('Failed to fetch CSRF token:', error);
+            }
+        }
+        return csrfToken;
+    }
+
     // --- API Helper ---
     async function fetchAPI(endpoint, options = {}) {
         const defaultOptions = {
@@ -115,6 +133,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 'X-Requested-With': 'XMLHttpRequest' // To help server identify AJAX
             }
         };
+        
+        // Add CSRF token for POST requests
+        if (options.method === 'POST') {
+            const token = await getCSRFToken();
+            if (token) {
+                defaultOptions.headers['X-CSRFToken'] = token;
+            }
+        }
+        
         const config = { ...defaultOptions, ...options };
         if (options.body && typeof options.body !== 'string' && !(options.body instanceof FormData)) {
             config.body = JSON.stringify(options.body);
@@ -635,8 +662,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
 
                 xhr.open('POST', '/api/upload', true);
-                // xhr.setRequestHeader('X-CSRFToken', csrfToken); // If using CSRF tokens
-                xhr.send(formData);
+                
+                // Add CSRF token
+                getCSRFToken().then(token => {
+                    if (token) {
+                        xhr.setRequestHeader('X-CSRFToken', token);
+                    }
+                    xhr.send(formData);
+                }).catch(err => {
+                    console.error('Failed to get CSRF token for upload:', err);
+                    xhr.send(formData); // Send anyway, might work if CSRF is disabled
+                });
             } // end for loop
 
             fileUploadInput.value = ''; // Reset input after initiating uploads
@@ -1904,7 +1940,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Send the request
             xhr.open('POST', '/api/upload');
-            xhr.send(formData);
+            
+            // Add CSRF token
+            getCSRFToken().then(token => {
+                if (token) {
+                    xhr.setRequestHeader('X-CSRFToken', token);
+                }
+                xhr.send(formData);
+            }).catch(err => {
+                console.error('Failed to get CSRF token for upload:', err);
+                xhr.send(formData); // Send anyway, might work if CSRF is disabled
+            });
             
         } catch (error) {
             progressText.textContent = 'Upload failed!';

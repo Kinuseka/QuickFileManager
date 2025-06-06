@@ -5,7 +5,22 @@ CONFIG_FILE = "config.yml"
 DEFAULT_CONFIG = {
     "app_password": "change_me_please",
     "managed_directory": "./managed_files",
-    "users": {}
+    "users": {},
+    "server": {
+        "domain": "",
+        "host": "0.0.0.0",
+        "port": 5000
+    },
+    "ssl": {
+        "enabled": False,
+        "cert_file": "",
+        "key_file": "",
+        "force_https": False
+    },
+    "security": {
+        "csrf_enabled": True,
+        "session_timeout": 3600
+    }
 }
 
 def get_config():

@@ -31,7 +31,7 @@ class FileManager:
 
     def _get_managed_dir(self):
         """Get and validate the managed directory path."""
-        managed_dir = self.config.get('managed_dir', './managed_files')
+        managed_dir = self.config.get('managed_directory', './managed_files')
         abs_managed_dir = os.path.abspath(managed_dir)
         
         if not os.path.exists(abs_managed_dir):

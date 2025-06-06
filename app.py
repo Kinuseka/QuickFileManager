@@ -1,5 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_from_directory, g
 from flask_socketio import SocketIO, emit
+from flask_wtf.csrf import CSRFProtect, validate_csrf
+from flask_wtf import FlaskForm
 import os
 from dotenv import load_dotenv
 import datetime # Added for logging
@@ -26,7 +28,39 @@ load_dotenv() # Load environment variables from .env if present
 
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(24)) # Important for session management
+
+# Load configuration
+config = get_config()
+ssl_config = config.get('ssl', {})
+server_config = config.get('server', {})
+security_config = config.get('security', {})
+
+# Initialize CSRF protection
+csrf = CSRFProtect()
+if security_config.get('csrf_enabled', True):
+    csrf.init_app(app)
+    print("INFO: CSRF protection enabled")
+else:
+    print("WARNING: CSRF protection disabled")
+
+# Configure session timeout
+app.permanent_session_lifetime = datetime.timedelta(seconds=security_config.get('session_timeout', 3600))
+
 socketio = SocketIO(app)
+
+@app.before_request
+def security_checks():
+    """Handle HTTPS redirects and domain awareness"""
+    # Make session permanent for timeout functionality
+    session.permanent = True
+    
+    # Domain-aware HTTPS redirect
+    if ssl_config.get('force_https', False) and not request.is_secure:
+        # Only redirect if not already HTTPS and not a SocketIO endpoint
+        if request.endpoint and not request.path.startswith('/socket.io/'):
+            domain = server_config.get('domain') or request.host
+            https_url = f"https://{domain}{request.full_path}"
+            return redirect(https_url, code=301)
 
 # Initialize FileManager - it will load its own config for managed_directory
 try:
@@ -42,6 +76,31 @@ active_connections = {
     '/updates': set(),  # Set of SIDs connected to /updates namespace
     '/logs': set()      # Set of SIDs connected to /logs namespace
 }
+
+def validate_csrf_token():
+    """Validate CSRF token for API requests"""
+    if not security_config.get('csrf_enabled', True):
+        return True
+    
+    try:
+        # Check for CSRF token in headers or form data
+        token = request.headers.get('X-CSRFToken') or request.form.get('csrf_token')
+        if token:
+            validate_csrf(token)
+            return True
+        return False
+    except Exception as e:
+        print(f"CSRF validation failed: {e}")
+        return False
+
+def require_csrf(f):
+    """Decorator to require CSRF token for API endpoints"""
+    def wrapper(*args, **kwargs):
+        if not validate_csrf_token():
+            return jsonify({"error": "CSRF token missing or invalid"}), 400
+        return f(*args, **kwargs)
+    wrapper.__name__ = f.__name__
+    return wrapper
 
 # External file monitoring system removed as requested
 
@@ -138,6 +197,13 @@ def index():
     username_to_display = g.user.get('username', 'User') if hasattr(g, 'user') and g.user else 'User'
     return render_template('index.html', username=username_to_display)
 
+@app.route('/api/csrf-token', methods=['GET'])
+@login_required
+def get_csrf_token():
+    """Provide CSRF token for JavaScript requests"""
+    from flask_wtf.csrf import generate_csrf
+    return jsonify({"csrf_token": generate_csrf()})
+
 # Handle listing the root of the managed directory
 @app.route('/api/files', methods=['GET'])
 @app.route('/api/files/', methods=['GET'])
@@ -228,6 +294,7 @@ def file_content_api():
 
 @app.route('/api/create/folder', methods=['POST'])
 @login_required
+@require_csrf
 def create_folder_api():
     if not file_manager:
         return jsonify({"error": "FileManager not initialized"}), 500
@@ -255,6 +322,7 @@ def create_folder_api():
 
 @app.route('/api/delete', methods=['POST']) # Changed to POST for item path in body
 @login_required
+@require_csrf
 def delete_item_api():
     if not file_manager:
         return jsonify({"error": "FileManager not initialized"}), 500
@@ -310,6 +378,7 @@ def batch_delete_api():
 
 @app.route('/api/upload', methods=['POST'])
 @login_required
+@require_csrf
 def upload_file_api():
     if not file_manager:
         return jsonify({"error": "FileManager not initialized"}), 500
@@ -735,16 +804,40 @@ if __name__ == '__main__':
     # Register cleanup function
     atexit.register(cleanup)
     
+    # SSL configuration already loaded at startup
+    
     # Start the Flask-SocketIO server
-    host = os.getenv('HOST', '0.0.0.0')
-    port = int(os.getenv('PORT', 5000))
+    host = os.getenv('HOST') or server_config.get('host', '0.0.0.0')
+    port = int(os.getenv('PORT') or server_config.get('port', 5000))
     debug = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
+    domain = server_config.get('domain', '')
+    
+    if domain:
+        print(f"Configured domain: {domain}")
+    
+    # SSL configuration
+    ssl_enabled = ssl_config.get('enabled', False) or os.getenv('SSL_ENABLED', 'false').lower() == 'true'
+    cert_file = ssl_config.get('cert_file') or os.getenv('SSL_CERT_FILE')
+    key_file = ssl_config.get('key_file') or os.getenv('SSL_KEY_FILE')
     
     print(f"Starting server on {host}:{port}")
     print(f"Debug mode: {debug}")
     
+    if ssl_enabled and cert_file and key_file:
+        if os.path.exists(cert_file) and os.path.exists(key_file):
+            print(f"SSL enabled with cert: {cert_file}, key: {key_file}")
+            ssl_context = (cert_file, key_file)
+        else:
+            print(f"WARNING: SSL certificates not found. Cert: {cert_file}, Key: {key_file}")
+            print("Starting server without SSL...")
+            ssl_context = None
+    else:
+        ssl_context = None
+        if ssl_enabled:
+            print("SSL enabled in config but certificate files not specified")
+    
     try:
-        socketio.run(app, host=host, port=port, debug=debug)
+        socketio.run(app, host=host, port=port, debug=debug, ssl_context=ssl_context)
     except KeyboardInterrupt:
         print("\nShutting down server...")
         cleanup()
