@@ -170,8 +170,17 @@ def login():
         else:
             error = "Invalid credentials. Please try again."
             add_activity_log(username or "Unknown_User", request.remote_addr, "login_fail")
+    
+    # Provide CSRF token to template if CSRF is enabled
+    csrf_token_value = None
+    if security_config.get('csrf_enabled', True):
+        try:
+            from flask_wtf.csrf import generate_csrf
+            csrf_token_value = generate_csrf
+        except Exception as e:
+            print(f"Failed to generate CSRF token: {e}")
             
-    return render_template('login.html', error=error)
+    return render_template('login.html', error=error, csrf_token=csrf_token_value)
 
 @app.route('/logout')
 @login_required
