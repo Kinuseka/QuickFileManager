@@ -1,0 +1,4 @@
+Flask
+PyYAML
+Flask-SocketIO
+python-dotenv 

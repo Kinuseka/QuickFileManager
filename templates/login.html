@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - File Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="dark-mode"> <!-- Default to dark mode -->
+    <div class="login-container">
+        <form method="POST" action="{{ url_for('login') }}">
+            <h2>File Manager Login</h2>
+            {% if error %}
+                <p class="error-message">{{ error }}</p>
+            {% endif %}
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit">Login</button>
+        </form>
+        <p><small>Hint: Check config.yml for the password if you're setting this up for the first time.</small></p>
+    </div>
+    <script>
+        // Basic dark mode toggle persistence (optional for login page)
+        const toggleButton = document.createElement('button');
+        toggleButton.textContent = 'Toggle Light/Dark Mode';
+        toggleButton.style.position = 'absolute';
+        toggleButton.style.top = '10px';
+        toggleButton.style.right = '10px';
+        document.body.appendChild(toggleButton);
+
+        function applyTheme() {
+            if (localStorage.getItem('theme') === 'light-mode') {
+                document.body.classList.remove('dark-mode');
+                document.body.classList.add('light-mode');
+            } else {
+                document.body.classList.remove('light-mode');
+                document.body.classList.add('dark-mode');
+            }
+        }
+
+        toggleButton.addEventListener('click', () => {
+            if (document.body.classList.contains('dark-mode')) {
+                localStorage.setItem('theme', 'light-mode');
+            } else {
+                localStorage.setItem('theme', 'dark-mode');
+            }
+            applyTheme();
+        });
+        applyTheme(); // Apply theme on load
+    </script>
+</body>
+</html> 

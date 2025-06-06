@@ -1,0 +1,13 @@
+# Optional archive support libraries for File Manager
+# Install these for additional archive format support
+
+# RAR support (requires unrar utility)
+rarfile>=4.0
+
+# 7Z support (pure Python implementation)
+py7zr>=0.20.0
+
+# Built-in support (no additional installation needed):
+# - ZIP files (zipfile module)
+# - TAR files (tarfile module)
+# - GZ, BZ2, XZ files (tarfile module) 

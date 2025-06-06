@@ -1,0 +1,4 @@
+activity_log: []
+app_password: test123
+managed_directory: ./managed_files
+users:

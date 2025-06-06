@@ -1,0 +1,1249 @@
+/* General Styles */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    font-size: 16px;
+    line-height: 1.6;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.container {
+    width: 90%;
+    max-width: 1400px;
+    margin: 20px auto;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 20px;
+    margin-bottom: 20px;
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+}
+
+header h1 {
+    margin: 0;
+}
+
+.header-controls span, .header-controls button {
+    margin-left: 15px;
+}
+
+.main-layout {
+    display: flex;
+    gap: 20px;
+}
+
+.file-explorer-panel {
+    flex: 2.85; /* Slightly reduced to accommodate wider activity log */
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.activity-log-panel {
+    flex: 1.05; /* Increased by approximately 5% */
+    padding: 15px;
+    border-radius: 8px;
+    max-height: 70vh;
+    overflow-y: auto;
+    overflow-x: hidden; /* Disable horizontal scrollbar */
+}
+
+.path-navigator {
+    margin-bottom: 15px;
+    padding: 10px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.file-actions button {
+    margin-right: 5px;
+    margin-bottom: 10px;
+}
+
+.file-list-container {
+    border-width: 1px;
+    border-style: solid;
+    padding: 10px;
+    min-height: 200px;
+    border-radius: 4px;
+    overflow-y: auto;
+    flex-grow: 1;
+    position: relative; /* Create stacking context */
+    z-index: 1; /* Base stacking context */
+    height: calc(12 * 40px); /* Limit to 10 items (assuming each item is ~40px) */
+}
+
+.file-item, .folder-item {
+    padding: 8px 10px;
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.file-item:last-child, .folder-item:last-child {
+    border-bottom: none;
+}
+
+.file-item input[type="checkbox"], .folder-item input[type="checkbox"] {
+    margin-right: 10px;
+}
+
+.item-details {
+    display: flex;
+    align-items: center;
+    flex-grow: 1;
+}
+
+.item-checkbox {
+    margin-right: 10px;
+    cursor: pointer;
+}
+
+.item-details .fas {
+    font-size: 1.1em;
+    width: 20px;
+    text-align: center;
+}
+
+.item-details .item-icon {
+    margin-right: 0.5rem; /* Add spacing between icon and name */
+    flex-shrink: 0; /* Prevent icon from shrinking */
+}
+
+.item-details .item-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-grow: 1;
+}
+
+.file-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+}
+
+.file-item-actions button {
+    margin-left: 5px;
+    padding: 4px 8px;
+    font-size: 0.85em;
+}
+
+.file-preview-area {
+    margin-top: 20px;
+    padding: 15px;
+    border-radius: 4px;
+    border-width: 1px;
+    border-style: solid;
+}
+
+#file-content-editor {
+    width: 98%;
+    min-height: 250px;
+    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 4px;
+    border-width: 1px;
+    border-style: solid;
+}
+
+#activity-log-list {
+    list-style-type: none;
+    padding: 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+#activity-log-list li {
+    padding: 6px 0;
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+    font-size: 0.9em;
+    white-space: normal; /* Allow text wrapping */
+    word-break: break-word; /* Break long words if needed */
+}
+#activity-log-list li:last-child {
+    border-bottom: none;
+}
+#activity-log-list li .log-timestamp {
+    font-size: 0.8em;
+    margin-right: 5px;
+}
+#activity-log-list li .log-user {
+    font-weight: bold;
+}
+
+footer {
+    text-align: center;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top-width: 1px;
+    border-top-style: solid;
+    font-size: 0.9em;
+}
+
+/* Dark Mode */
+body.dark-mode {
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    --dropdown-bg: rgba(40, 40, 40, 0.75); /* Darker glass for dark mode */
+    --dropdown-border: rgba(255, 255, 255, 0.15);
+    --dropdown-button-hover-bg: rgba(255, 255, 255, 0.12);
+    --modal-backdrop-color: rgba(0, 0, 0, 0.7); /* Semi-transparent backdrop for dark mode */
+    --modal-content-bg: rgba(35, 35, 35, 0.85); /* More opaque background for modal content */
+    --modal-border-color: rgba(255, 255, 255, 0.15);
+}
+
+.dark-mode .container, .dark-mode .file-explorer-panel, .dark-mode .activity-log-panel {
+    background-color: #252526;
+    border: 1px solid #383838;
+}
+
+.dark-mode header {
+    border-bottom-color: #383838;
+}
+
+.dark-mode .path-navigator {
+    background-color: #333;
+    border: 1px solid #444;
+}
+
+.dark-mode .file-list-container, .dark-mode .file-preview-area, .dark-mode #file-content-editor {
+    border-color: #444;
+    background-color: #1e1e1e; /* Editor background */
+    color: #d4d4d4;
+}
+
+.dark-mode .file-item, .dark-mode .folder-item, .dark-mode #activity-log-list li {
+    border-bottom-color: #383838;
+}
+
+.dark-mode .file-item:hover, .dark-mode .folder-item:hover {
+    background-color: #2a2d2e;
+}
+
+.dark-mode button {
+    background-color: #3a3a3a;
+    color: #f0f0f0;
+    border: 1px solid #555;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.dark-mode button:hover {
+    background-color: #4a4a4a;
+}
+
+.dark-mode button:disabled {
+    background-color: #2a2a2a;
+    color: #666;
+    cursor: not-allowed;
+}
+
+.dark-mode input[type="text"], .dark-mode input[type="password"], .dark-mode textarea {
+    background-color: #333;
+    color: #d4d4d4;
+    border: 1px solid #555;
+    padding: 8px;
+    border-radius: 4px;
+}
+
+.dark-mode footer {
+    border-top-color: #383838;
+}
+
+.dark-mode .error-message {
+    color: #ff6666;
+}
+
+/* Light Mode (Opposite of Dark Mode) */
+body.light-mode {
+    background-color: #f4f4f4;
+    color: #333;
+    --dropdown-bg: rgba(245, 245, 245, 0.75); /* Lighter glass for light mode */
+    --dropdown-border: rgba(0, 0, 0, 0.1);
+    --dropdown-button-hover-bg: rgba(0, 0, 0, 0.08);
+    --modal-backdrop-color: rgba(0, 0, 0, 0.5); /* Lighter backdrop for light mode */
+    --modal-content-bg: rgba(245, 245, 245, 0.92); /* More opaque background for modal content */
+    --modal-border-color: rgba(0, 0, 0, 0.1);
+}
+
+.light-mode .container, .light-mode .file-explorer-panel, .light-mode .activity-log-panel {
+    background-color: #ffffff;
+    border: 1px solid #ddd;
+}
+
+.light-mode header {
+    border-bottom-color: #ddd;
+}
+
+.light-mode .path-navigator {
+    background-color: #eee;
+    border: 1px solid #ccc;
+}
+
+.light-mode .file-list-container, .light-mode .file-preview-area, .light-mode #file-content-editor {
+    border-color: #ccc;
+    background-color: #ffffff;
+    color: #333;
+}
+
+.light-mode .file-item, .light-mode .folder-item, .light-mode #activity-log-list li {
+    border-bottom-color: #eee;
+}
+
+.light-mode .file-item:hover, .light-mode .folder-item:hover {
+    background-color: #f0f0f0;
+}
+
+.light-mode button {
+    background-color: #e0e0e0;
+    color: #333;
+    border: 1px solid #ccc;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.light-mode button:hover {
+    background-color: #d0d0d0;
+}
+
+.light-mode button:disabled {
+    background-color: #f0f0f0;
+    color: #aaa;
+    cursor: not-allowed;
+}
+
+.light-mode input[type="text"], .light-mode input[type="password"], .light-mode textarea {
+    background-color: #fff;
+    color: #333;
+    border: 1px solid #ccc;
+    padding: 8px;
+    border-radius: 4px;
+}
+
+.light-mode footer {
+    border-top-color: #ddd;
+}
+
+.light-mode .error-message {
+    color: #cc0000;
+}
+
+/* Login Page Specific Styles */
+.login-container {
+    width: 100%;
+    max-width: 400px;
+    margin: 50px auto;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.1);
+}
+
+.dark-mode .login-container {
+    background-color: #252526;
+    border: 1px solid #383838;
+    box-shadow: 0 0 15px rgba(0,0,0,0.3);
+}
+
+.light-mode .login-container {
+    background-color: #fff;
+    border: 1px solid #ddd;
+}
+
+.login-container h2 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.form-group input[type="text"], .form-group input[type="password"] {
+    width: calc(100% - 18px); /* Account for padding */
+}
+
+.login-container button[type="submit"] {
+    width: 100%;
+    padding: 10px;
+}
+
+.login-container p small {
+    display: block;
+    text-align: center;
+    margin-top: 15px;
+    font-size: 0.85em;
+}
+
+/* Utility */
+.hidden {
+    display: none;
+}
+.error-message {
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+    text-align: center;
+}
+.dark-mode .error-message { background-color: rgba(255, 102, 102, 0.2); border: 1px solid #ff6666; color: #ffcccc;}
+.light-mode .error-message { background-color: rgba(204, 0, 0, 0.1); border: 1px solid #cc0000; color: #990000;}
+
+.success-message {
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+    text-align: center;
+}
+.dark-mode .success-message { background-color: rgba(102, 204, 102, 0.2); border: 1px solid #66cc66; color: #cce5cc;}
+.light-mode .success-message { background-color: rgba(0, 128, 0, 0.1); border: 1px solid #008000; color: #006400;}
+
+/* Selected item styling */
+.file-item.selected, .folder-item.selected {
+    background-color: var(--selection-background-color, rgba(0, 123, 255, 0.25)); /* A semi-transparent blue */
+    /* border-left: 3px solid var(--accent-color, #007bff); Optional: adds a side border */
+    border-radius: 3px; /* Slightly rounded corners for the selection highlight */
+}
+
+.navigation-item.selected {
+    /* Ensure navigation items like '..' don't get a persistent selection highlight if not desired */
+    background-color: transparent;
+}
+
+.dark-mode .file-item.selected, .dark-mode .folder-item.selected {
+    background-color: #094771; /* A distinct selection color for dark mode */
+}
+.light-mode .file-item.selected, .light-mode .folder-item.selected {
+    background-color: #cce5ff; /* A distinct selection color for light mode */
+}
+
+/* Toast Notifications */
+.toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 12px 25px;
+    border-radius: 6px;
+    z-index: 10000; /* Ensure it's on top */
+    color: white;
+    font-size: 0.95em;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out, bottom 0.3s ease-in-out;
+    max-width: 80%;
+    text-align: center;
+}
+
+.toast.show {
+    opacity: 1;
+    bottom: 30px;
+}
+
+.toast.info {
+    background-color: #007bff;
+}
+
+.toast.success {
+    background-color: #28a745;
+}
+
+.toast.error {
+    background-color: #dc3545;
+}
+
+.toast.warning {
+    background-color: #ffc107;
+    color: #333; /* Darker text for light warning background */
+}
+
+/* Image Zoom Modal Styles */
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 10001; /* Sit on top, higher than toast */
+    padding-top: 50px; /* Location of the box */
+    left: 0;
+    top: 0;
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    overflow: auto; /* Enable scroll if needed */
+    background-color: var(--modal-backdrop-color, rgba(0,0,0,0.7)); /* Theme-aware backdrop */
+}
+
+.modal-content {
+    margin: auto;
+    display: block;
+    max-width: 95%;
+    max-height: 95vh; /* Increased from 85% to make zoom 75% bigger */
+    /* Animation (optional) */
+    animation-name: zoom;
+    animation-duration: 0.4s;
+}
+
+@keyframes zoom {
+    from {transform:scale(0.5)}
+    to {transform:scale(1)}
+}
+
+#modal-caption {
+    margin: auto;
+    display: block;
+    width: 80%;
+    max-width: 700px;
+    text-align: center;
+    color: #ccc;
+    padding: 15px 0;
+    height: 50px; /* Or adjust as needed */
+}
+
+.close-modal-button {
+    position: absolute;
+    top: 15px;
+    right: 35px;
+    color: #f1f1f1;
+    font-size: 40px;
+    font-weight: bold;
+    transition: 0.3s;
+}
+
+.close-modal-button:hover,
+.close-modal-button:focus {
+    color: #bbb;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+/* For video, a utility class for a potential custom fullscreen button */
+.fullscreen-button {
+    padding: 5px 10px;
+    margin-left: 10px;
+}
+
+/* Upload Progress Styling */
+.upload-progress-area {
+    margin-top: 15px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.upload-progress-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 35px 8px 12px; /* More right padding for close button */
+    margin-bottom: 8px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.9em;
+    position: relative;
+    min-height: 40px;
+}
+
+.upload-progress-close {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--text-secondary);
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+}
+
+.upload-progress-close:hover {
+    background: var(--error-color);
+    color: white;
+}
+
+.file-info {
+    flex: 1;
+    color: var(--text-primary);
+    font-weight: 500;
+    min-width: 0; /* Allow text to truncate */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.progress-bar-container {
+    width: 80px;
+    height: 6px;
+    background: var(--bg-primary);
+    border-radius: 3px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.progress-bar {
+    height: 100%;
+    background: var(--accent-color);
+    transition: width 0.3s ease, background-color 0.3s ease;
+    border-radius: 3px;
+}
+
+.progress-text {
+    font-size: 0.8em;
+    color: var(--text-secondary);
+    min-width: 35px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.upload-speed {
+    font-size: 0.8em;
+    color: var(--text-secondary);
+    min-width: 80px;
+    text-align: right;
+    margin-right: 20px;
+    flex-shrink: 0;
+}
+
+/* Styles for inline rename */
+.rename-controls {
+    display: flex;
+    align-items: center;
+    gap: 5px; /* Space between input and buttons */
+}
+
+.rename-input {
+    flex-grow: 1;
+    padding: 6px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+.rename-confirm-btn,
+.rename-cancel-btn {
+    background-color: transparent;
+    border: none;
+    color: var(--text-color);
+    cursor: pointer;
+    padding: 5px;
+    font-size: 1em;
+}
+
+.rename-confirm-btn:hover i,
+.rename-cancel-btn:hover i{
+    opacity: 0.7;
+}
+
+.rename-confirm-btn i.fa-check {
+    color: #28a745; /* Green for confirm */
+}
+
+.rename-cancel-btn i.fa-times {
+    color: #dc3545; /* Red for cancel */
+}
+
+/* Styles for Ellipsis Dropdown */
+.file-item-actions-wrapper {
+    position: relative;
+    margin-left: auto;
+    z-index: 10; /* Higher than file-list-container */
+}
+
+.ellipsis-button {
+    background-color: transparent;
+    border: none;
+    color: var(--text-color);
+    cursor: pointer;
+    padding: 8px;
+    font-size: 1.1em;
+    line-height: 1;
+    position: relative;
+    z-index: 1; /* Ensure button is above other elements */
+    transition: transform 0.2s;
+}
+
+.ellipsis-button:hover {
+    opacity: 0.7;
+}
+
+.ellipsis-button .fa-times {
+    color: var(--accent-color, #ff5252); /* Red X for closing */
+}
+
+.actions-dropdown {
+    display: none; /* Hidden by default */
+    position: fixed; /* Fixed position to float on top of everything */
+    background-color: var(--dropdown-bg);
+    border: 1px solid var(--dropdown-border);
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    z-index: 1000; 
+    min-width: 180px; /* Adjusted min-width */
+    padding: 8px 0; /* Adjusted padding */
+    opacity: 1; /* Keep this as 1, translucency comes from background-color */
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.actions-dropdown.active {
+    display: block; 
+}
+
+.actions-dropdown button {
+    display: block;
+    width: 100%;
+    padding: 10px 15px; /* Increased padding for better touch/click targets */
+    text-align: left;
+    background-color: transparent; /* Buttons themselves are transparent */
+    border: none;
+    color: var(--text-color);
+    cursor: pointer;
+    font-size: 0.9em;
+    opacity: 0.9; /* From your previous change */
+    transition: background-color 0.2s, opacity 0.2s; /* Adjusted transition for opacity based on your change */
+}
+
+.actions-dropdown button:hover {
+    background-color: var(--dropdown-button-hover-bg); 
+    opacity: 1; 
+}
+
+.actions-dropdown button i {
+    margin-right: 8px;
+    width: 16px; /* Align icons */
+    text-align: center;
+}
+
+/* Adjust file-item to ensure actions are on the far right */
+.file-item, .folder-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--modal-backdrop-color);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: var(--modal-content-bg);
+    border: 1px solid var(--modal-border-color);
+    border-radius: 8px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    animation: modalFadeIn 0.3s ease-out;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--modal-border-color);
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1.2em;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-body p {
+    margin: 0 0 15px 0;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.modal-body label {
+    display: block;
+    margin: 10px 0 5px 0;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.modal-body input[type="text"] {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 14px;
+    box-sizing: border-box;
+    margin-top: 5px;
+}
+
+.modal-body input[type="text"]:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 20px;
+    border-top: 1px solid var(--modal-border-color);
+}
+
+.modal .close {
+    color: var(--text-secondary);
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.modal .close:hover {
+    color: var(--text-primary);
+    background: var(--hover-bg);
+}
+
+.button-primary {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.button-primary:hover {
+    background-color: var(--primary-hover-color);
+}
+
+.button-secondary {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.button-secondary:hover {
+    background-color: var(--hover-bg);
+}
+
+.button-danger {
+    background-color: var(--error-color);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.button-danger:hover {
+    background-color: var(--error-hover-color);
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Activity Log Color Coding */
+.log-action {
+    font-weight: bold;
+}
+
+.log-details {
+    color: var(--text-color-secondary); /* Subtler color for details */
+    margin-left: 5px;
+}
+
+/* Default/Other Actions */
+.log-action-default {
+    color: var(--text-color); /* Or a specific neutral color */
+}
+body.light-mode .log-action-default {
+    color: #555;
+}
+
+/* Login/Logout Actions */
+.log-action-login, .log-action-logout {
+    color: var(--info-color, #17a2b8);
+}
+body.light-mode .log-action-login, body.light-mode .log-action-logout {
+    color: #117a8b;
+}
+
+/* Add/Create Actions (e.g., upload, create_folder) */
+.log-action-add {
+    color: var(--success-color, #28a745);
+}
+body.light-mode .log-action-add {
+    color: #1e7e34;
+}
+
+/* Modify/Rename Actions */
+.log-action-modify {
+    color: var(--warning-color, #ffc107); /* Yellow/Orange for modifications */
+}
+body.light-mode .log-action-modify {
+    color: #d39e00; 
+}
+
+/* Delete Actions */
+.log-action-delete {
+    color: var(--danger-color, #dc3545);
+}
+body.light-mode .log-action-delete {
+    color: #bd2130;
+}
+
+/* Preview/View Actions */
+.log-action-preview {
+    color: var(--primary-color, #007bff); /* Blue for previews */
+}
+body.light-mode .log-action-preview {
+    color: #0056b3;
+}
+
+/* Download Actions */
+.log-action-download {
+    color: var(--secondary-color, #6c757d); /* Grey/Secondary for downloads */
+}
+body.light-mode .log-action-download {
+    color: #545b62;
+}
+
+/* Archive Actions (zip/unzip) */
+.log-action-archive {
+    color: var(--accent-color-darker, #5a4fcf); /* A purple/indigo for archive ops */
+}
+body.light-mode .log-action-archive {
+    color: #4e43b1;
+}
+
+/* Error/Access Denied Actions */
+.log-action-error {
+    color: var(--danger-color, #dc3545); /* Same as delete for high alert */
+}
+body.light-mode .log-action-error {
+    color: #bd2130;
+}
+
+/* Active state for toggle select mode button */
+#toggle-select-mode-button.active {
+    background-color: var(--primary-color, #007bff) !important;
+    color: white !important;
+}
+
+body.light-mode #toggle-select-mode-button.active {
+    background-color: #0056b3 !important;
+    color: white !important;
+}
+
+/* Make sure the hover state works with active */
+#toggle-select-mode-button.active:hover {
+    background-color: var(--primary-hover-color, #0056b3) !important;
+}
+
+/* Custom Scrollbar Styling */
+/* Apply to all elements including body/html */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+/* Dark Mode Scrollbar */
+body.dark-mode ::-webkit-scrollbar-track,
+body.dark-mode::-webkit-scrollbar-track {
+    background: rgba(45, 45, 45, 0.3);
+    border-radius: 4px;
+}
+
+body.dark-mode ::-webkit-scrollbar-thumb,
+body.dark-mode::-webkit-scrollbar-thumb {
+    background: rgba(140, 140, 140, 0.6);
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+body.dark-mode ::-webkit-scrollbar-thumb:hover,
+body.dark-mode::-webkit-scrollbar-thumb:hover {
+    background: rgba(160, 160, 160, 0.8);
+}
+
+body.dark-mode ::-webkit-scrollbar-corner,
+body.dark-mode::-webkit-scrollbar-corner {
+    background: rgba(45, 45, 45, 0.3);
+}
+
+/* Light Mode Scrollbar */
+body.light-mode ::-webkit-scrollbar-track,
+body.light-mode::-webkit-scrollbar-track {
+    background: rgba(240, 240, 240, 0.5);
+    border-radius: 4px;
+}
+
+body.light-mode ::-webkit-scrollbar-thumb,
+body.light-mode::-webkit-scrollbar-thumb {
+    background: rgba(120, 120, 120, 0.6);
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+body.light-mode ::-webkit-scrollbar-thumb:hover,
+body.light-mode::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 100, 100, 0.8);
+}
+
+body.light-mode ::-webkit-scrollbar-corner,
+body.light-mode::-webkit-scrollbar-corner {
+    background: rgba(240, 240, 240, 0.5);
+}
+
+/* Firefox scrollbar styling */
+html, body {
+    scrollbar-width: thin;
+}
+
+body.dark-mode,
+body.dark-mode * {
+    scrollbar-color: rgba(140, 140, 140, 0.6) rgba(45, 45, 45, 0.3);
+}
+
+body.light-mode,
+body.light-mode * {
+    scrollbar-color: rgba(120, 120, 120, 0.6) rgba(240, 240, 240, 0.5);
+}
+
+/* Activity Log Variables */
+:root {
+    /* Light Mode Log Colors */
+    --log-add-color-light: #28a745;       /* Green */
+    --log-delete-color-light: #dc3545;    /* Red */
+    --log-modify-color-light: #ffc107;    /* Yellow */
+    --log-preview-color-light: #17a2b8;   /* Teal */
+    --log-download-color-light: #007bff;  /* Blue */
+    --log-archive-color-light: #6f42c1;   /* Purple */
+    --log-login-color-light: #20c997;     /* Lighter Green */
+    --log-logout-color-light: #fd7e14;    /* Orange */
+    --log-error-color-light: #e83e8c;     /* Pink */
+    --log-system-color-light: #6c757d;    /* Grey */
+
+    /* Dark Mode Log Colors */
+    --log-add-color-dark: #3dd563;
+    --log-delete-color-dark: #f85149;
+    --log-modify-color-dark: #ffca2c;
+    --log-preview-color-dark: #29b6f6;
+    --log-download-color-dark: #4dabf5;
+    --log-archive-color-dark: #ab47bc;
+    --log-login-color-dark: #26a69a;
+    --log-logout-color-dark: #ffa726;
+    --log-error-color-dark: #ec407a;
+    --log-system-color-dark: #90a4ae;     /* Lighter Grey for Dark */
+}
+
+body.light-mode {
+    --log-add-color: var(--log-add-color-light);
+    --log-delete-color: var(--log-delete-color-light);
+    --log-modify-color: var(--log-modify-color-light);
+    --log-preview-color: var(--log-preview-color-light);
+    --log-download-color: var(--log-download-color-light);
+    --log-archive-color: var(--log-archive-color-light);
+    --log-login-color: var(--log-login-color-light);
+    --log-logout-color: var(--log-logout-color-light);
+    --log-error-color: var(--log-error-color-light);
+    --log-system-color: var(--log-system-color-light);
+}
+
+body.dark-mode {
+    --log-add-color: var(--log-add-color-dark);
+    --log-delete-color: var(--log-delete-color-dark);
+    --log-modify-color: var(--log-modify-color-dark);
+    --log-preview-color: var(--log-preview-color-dark);
+    --log-download-color: var(--log-download-color-dark);
+    --log-archive-color: var(--log-archive-color-dark);
+    --log-login-color: var(--log-login-color-dark);
+    --log-logout-color: var(--log-logout-color-dark);
+    --log-error-color: var(--log-error-color-dark);
+    --log-system-color: var(--log-system-color-dark);
+}
+
+.log-action-add { color: var(--log-add-color); }
+.log-action-delete { color: var(--log-delete-color); }
+.log-action-modify { color: var(--log-modify-color); }
+.log-action-preview { color: var(--log-preview-color); }
+.log-action-download { color: var(--log-download-color); }
+.log-action-archive { color: var(--log-archive-color); }
+.log-action-login { color: var(--log-login-color); }
+.log-action-logout { color: var(--log-logout-color); }
+.log-action-error { color: var(--log-error-color); }
+.log-action-system { color: var(--log-system-color); }
+
+.checkbox-container {
+    display: flex;
+    align-items: center;
+    margin-top: 15px;
+    gap: 8px;
+}
+
+.modal-checkbox {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary-color);
+    cursor: pointer;
+}
+
+.checkbox-label {
+    margin: 0 !important;
+    font-weight: normal !important;
+    font-size: 14px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    user-select: none;
+}
+
+.checkbox-label:hover {
+    color: var(--text-primary);
+}
+
+/* Drag and Drop Upload Styles */
+.file-list-container {
+    position: relative;
+    min-height: 200px;
+}
+
+#file-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.drag-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 123, 255, 0.1);
+    border: 2px dashed var(--primary-color);
+    border-radius: 8px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    pointer-events: none;
+}
+
+.drag-overlay.active {
+    display: flex;
+}
+
+.file-list-container.drag-active {
+    background: rgba(0, 123, 255, 0.05);
+    border-radius: 8px;
+}
+
+.drag-overlay-text {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--primary-color);
+    background: var(--bg-primary);
+    padding: 20px 40px;
+    border-radius: 8px;
+    border: 2px solid var(--primary-color);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* --- Drag and Drop Styles --- */
+.file-item[draggable="true"], .folder-item[draggable="true"] {
+    cursor: grab;
+}
+
+.file-item[draggable="true"]:active, .folder-item[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+.file-item.drag-over, .folder-item.drag-over {
+    background-color: var(--accent-color);
+    border: 2px dashed var(--text-color);
+    opacity: 0.7;
+}
+
+.file-item.drag-over .item-name, .folder-item.drag-over .item-name {
+    font-weight: bold;
+}
+
+/* --- File Upload Progress Styles --- */
+
+/* --- Navigation Item Styling --- */
+.navigation-item {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    opacity: 0.8;
+    font-style: italic;
+}
+
+.navigation-item:hover {
+    opacity: 1;
+    background-color: rgba(var(--accent-color-rgb), 0.1);
+}
+
+/* --- File List Styling --- */ 
