@@ -1978,6 +1978,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const chunk = chunks[chunkIndex++];
                 chunk.retryCount = chunk.retryCount || 0;
+                
+                // Add to active uploads for concurrency control
+                activeUploads.add(chunk.index);
+                
                 const chunkData = file.slice(chunk.start, chunk.end);
                 
                 const formData = new FormData();
@@ -2071,8 +2075,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                 }, 1000);
                             }, 5000);
                         } else {
-                            // Continue uploading next chunk
-                            uploadNextChunk();
+                            // Continue uploading next chunk if we have capacity
+                            if (activeUploads.size < maxConcurrent) {
+                                uploadNextChunk();
+                            }
                         }
                     } else {
                         throw new Error(response.error || 'Chunk upload failed');
@@ -2083,8 +2089,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         chunk.retryCount++;
                         chunksStatus[chunk.index] = 'retrying';
                         console.warn(`Chunk ${chunk.index} failed, retrying (${chunk.retryCount}/3):`, error.message);
-                        chunkIndex--; // Put chunk back in queue
-                        setTimeout(() => uploadNextChunk(), 1000 * chunk.retryCount); // Exponential backoff
+                        
+                        // Put chunk back in queue by decrementing chunkIndex
+                        chunkIndex--;
+                        
+                        // Remove from active uploads before retry
+                        activeUploads.delete(chunk.index);
+                        
+                        // Schedule retry with exponential backoff
+                        setTimeout(() => {
+                            if (!uploadCancelled) {
+                                uploadNextChunk();
+                            }
+                        }, 1000 * chunk.retryCount);
                         return;
                     }
                     
@@ -2106,7 +2123,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                 } finally {
+                    // Always remove from active uploads when done (successful or failed)
                     activeUploads.delete(chunk.index);
+                    
+                    // Start next chunk if we have capacity and there are chunks remaining
+                    if (!uploadCancelled && chunkIndex < chunks.length && activeUploads.size < maxConcurrent) {
+                        uploadNextChunk();
+                    }
                 }
             };
 
