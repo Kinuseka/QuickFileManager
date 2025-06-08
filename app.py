@@ -107,7 +107,10 @@ def login():
             log_user_activity("login", f"Username: {username}")
             socketio.emit('user_count_update', {'count': get_active_users_count()}, namespace='/updates')
             next_url = request.args.get('next')
-            return redirect(next_url or url_for('index'))
+            # Security: Only allow relative URLs to prevent open redirect attacks
+            if next_url and next_url.startswith('/') and not next_url.startswith('//'):
+                return redirect(next_url)
+            return redirect(url_for('index'))
         else:
             error = "Invalid credentials. Please try again."
             add_activity_log(username or "Unknown_User", get_real_ip(), "login_fail")
