@@ -344,7 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             toggleSelectModeButton.innerHTML = '<i class="fas fa-mouse-pointer"></i> Click Mode';
                             updateButtonVisibility();
                             // Instead of reloading which loses context, just add checkboxes dynamically
-                            document.querySelectorAll('.file-item, .folder-item').forEach(item => {
+                            document.querySelectorAll('.file-item, .folder-item:not(.navigation-item)').forEach(item => {
                                 if (!item.querySelector('.item-checkbox')) {
                                     const itemDetails = item.querySelector('.item-details');
                                     if (itemDetails) {

@@ -288,6 +288,12 @@ def batch_delete_api():
     item_paths = data.get('paths')
     if not item_paths or not isinstance(item_paths, list):
         return jsonify({"error": "A list of item paths is required."}), 400
+    
+    # Additional safety: filter out parent directory paths and any invalid paths
+    item_paths = [path for path in item_paths if path and path not in ('..', '.', None)]
+    if not item_paths:
+        return jsonify({"error": "No valid item paths provided after filtering."}), 400
+    
     try:
         results = file_manager.batch_delete_items(item_paths)
         # Log each successful deletion or overall attempt
