@@ -1839,6 +1839,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let uploadedBytes = 0;
         const startTime = Date.now();
         let chunksCompleted = 0;
+        let currentUploadingBytes = 0; // Track bytes currently being uploaded across all chunks
 
         try {
             // Create chunks and track concurrent uploads
@@ -1878,12 +1879,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         xhr.open('POST', '/api/upload/chunk');
                         
                         // Update speed during upload
+                        let chunkBytesUploaded = 0;
                         xhr.upload.addEventListener('progress', (e) => {
                             if (e.lengthComputable) {
-                                const currentChunkBytes = uploadedBytes + e.loaded;
+                                // Update current uploading bytes for this chunk
+                                currentUploadingBytes = currentUploadingBytes - chunkBytesUploaded + e.loaded;
+                                chunkBytesUploaded = e.loaded;
+                                
+                                // Calculate total speed including all active uploads
+                                const totalCurrentBytes = uploadedBytes + currentUploadingBytes;
                                 const elapsedTime = (Date.now() - startTime) / 1000;
                                 if (elapsedTime > 0) {
-                                    const speed = currentChunkBytes / elapsedTime;
+                                    const speed = totalCurrentBytes / elapsedTime;
                                     uploadSpeed.textContent = `${formatBytes(speed)}/s`;
                                 }
                             }
@@ -1909,6 +1916,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (response.success) {
                         chunksCompleted++;
                         uploadedBytes += chunkData.size;
+                        currentUploadingBytes -= chunkBytesUploaded; // Remove this chunk's bytes from current uploading
                         
                         // Update progress
                         const percentComplete = (chunksCompleted / totalChunks) * 100;
