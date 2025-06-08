@@ -460,184 +460,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (uploadProgressArea) uploadProgressArea.innerHTML = ''; // Clear previous progress bars
-            let allUploadsSuccessful = true;
-            let filesUploadedCount = 0;
 
+            // Use the new upload system for all files
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                const fileId = `upload-${Date.now()}-${i}`;
-
-                // Create progress bar elements for this file
-                const progressItem = document.createElement('div');
-                progressItem.classList.add('upload-progress-item');
-                progressItem.id = fileId;
-                
-                const fileInfoSpan = document.createElement('span');
-                fileInfoSpan.classList.add('file-info');
-                fileInfoSpan.textContent = `${file.name} (${formatBytes(file.size)})`;
-
-                const progressBarContainer = document.createElement('div');
-                progressBarContainer.classList.add('progress-bar-container');
-                const progressBar = document.createElement('div');
-                progressBar.classList.add('progress-bar');
-                progressBarContainer.appendChild(progressBar);
-
-                const progressTextSpan = document.createElement('span');
-                progressTextSpan.classList.add('progress-text');
-                progressTextSpan.textContent = '0%';
-
-                const uploadSpeedSpan = document.createElement('span');
-                uploadSpeedSpan.classList.add('upload-speed');
-                uploadSpeedSpan.textContent = '0 B/s';
-                
-                // Add close button
-                const closeButton = document.createElement('button');
-                closeButton.classList.add('upload-progress-close');
-                closeButton.innerHTML = '×';
-                closeButton.title = 'Close';
-                closeButton.onclick = () => {
-                    progressItem.style.transition = 'opacity 0.3s ease-out';
-                    progressItem.style.opacity = '0';
-                    setTimeout(() => {
-                        if (progressItem.parentNode) {
-                            progressItem.parentNode.removeChild(progressItem);
-                        }
-                    }, 300);
-                };
-
-                progressItem.appendChild(fileInfoSpan);
-                progressItem.appendChild(progressBarContainer);
-                progressItem.appendChild(progressTextSpan);
-                progressItem.appendChild(uploadSpeedSpan);
-                progressItem.appendChild(closeButton);
-                if (uploadProgressArea) uploadProgressArea.appendChild(progressItem);
-
-                // Upload this file
-                const formData = new FormData();
-                formData.append('file', file);
-                formData.append('path', currentDirectory);
-                
-                const xhr = new XMLHttpRequest();
-                let lastLoaded = 0;
-                let lastTime = Date.now();
-
-                xhr.upload.onprogress = function(e) {
-                    if (e.lengthComputable) {
-                        const percentComplete = Math.round((e.loaded / e.total) * 100);
-                        progressBar.style.width = percentComplete + '%';
-                        progressTextSpan.textContent = percentComplete + '%';
-
-                        const currentTime = Date.now();
-                        const deltaTime = (currentTime - lastTime) / 1000; // in seconds
-                        const deltaLoaded = e.loaded - lastLoaded;
-                        if (deltaTime > 0) {
-                            const speed = deltaLoaded / deltaTime;
-                            uploadSpeedSpan.textContent = `${formatBytes(speed)}/s`;
-                        }
-                        lastLoaded = e.loaded;
-                        lastTime = currentTime;
-                    }
-                };
-
-                xhr.onload = function() {
-                    filesUploadedCount++;
-                    if (xhr.status === 200) {
-                        const response = JSON.parse(xhr.responseText);
-                        if (response.success) {
-                            progressTextSpan.textContent = 'Done!';
-                            progressBar.style.backgroundColor = '#28a745'; // Green for success
-                            // Auto-hide individual progress item after 5 seconds
-                            setTimeout(() => {
-                                progressItem.style.transition = 'opacity 1s ease-out';
-                                progressItem.style.opacity = '0';
-                                setTimeout(() => {
-                                    if (progressItem.parentNode) {
-                                        progressItem.parentNode.removeChild(progressItem);
-                                    }
-                                }, 1000);
-                            }, 5000);
-                            // showToast(`${file.name} uploaded successfully!`, 'success'); // Can be too noisy
-                        } else {
-                            allUploadsSuccessful = false;
-                            progressTextSpan.textContent = 'Error!';
-                            progressBar.style.backgroundColor = '#dc3545'; // Red for error
-                            showToast(response.error || `Error uploading ${file.name}`, 'error');
-                        }
-                    } else {
-                        allUploadsSuccessful = false;
-                        progressTextSpan.textContent = 'Failed!';
-                        progressBar.style.backgroundColor = '#dc3545'; // Red for server error
-                        showToast(`Upload failed for ${file.name}: ${xhr.statusText}`, 'error');
-                    }
-
-                    if (filesUploadedCount === files.length) { // All files processed
-                        // File list will be updated via socket events
-                        if (allUploadsSuccessful) {
-                            showToast(`${files.length} file(s) processed.`, 'success');
-                        } else {
-                            showToast('Some files failed to upload.', 'warning');
-                        }
-                        // Auto-hide upload progress after 10 seconds with fade effect
-                        setTimeout(() => {
-                            if (uploadProgressArea && uploadProgressArea.children.length > 0) {
-                                // Add fade-out class to all progress items
-                                Array.from(uploadProgressArea.children).forEach(progressItem => {
-                                    progressItem.style.transition = 'opacity 1s ease-out';
-                                    progressItem.style.opacity = '0';
-                                });
-                                
-                                // Remove elements after fade animation completes
-                                setTimeout(() => {
-                                    if (uploadProgressArea) uploadProgressArea.innerHTML = '';
-                                }, 1000); // Wait for 1s fade out to complete
-                            }
-                        }, 10000); // 10 second delay
-                    }
-                };
-
-                xhr.onerror = function() {
-                    filesUploadedCount++;
-                    allUploadsSuccessful = false;
-                    progressTextSpan.textContent = 'Network Error!';
-                    progressBar.style.backgroundColor = '#dc3545';
-                    showToast(`Network error during upload of ${file.name}.`, 'error');
-                    
-                    // Auto-hide individual progress item after 5 seconds for errors too
-                    setTimeout(() => {
-                        progressItem.style.transition = 'opacity 1s ease-out';
-                        progressItem.style.opacity = '0';
-                        setTimeout(() => {
-                            if (progressItem.parentNode) {
-                                progressItem.parentNode.removeChild(progressItem);
-                            }
-                        }, 1000);
-                    }, 5000);
-                    
-                    if (filesUploadedCount === files.length) {
-                        // File list will be updated via socket events
-                        showToast('Some files failed due to network issues.', 'warning');
-                        // Auto-hide upload progress after 10 seconds with fade effect
-                        setTimeout(() => {
-                            if (uploadProgressArea && uploadProgressArea.children.length > 0) {
-                                // Add fade-out class to all progress items
-                                Array.from(uploadProgressArea.children).forEach(progressItem => {
-                                    progressItem.style.transition = 'opacity 1s ease-out';
-                                    progressItem.style.opacity = '0';
-                                });
-                                
-                                // Remove elements after fade animation completes
-                                setTimeout(() => {
-                                    if (uploadProgressArea) uploadProgressArea.innerHTML = '';
-                                }, 1000); // Wait for 1s fade out to complete
-                            }
-                        }, 10000); // 10 second delay
-                    }
-                };
-
-                xhr.open('POST', '/api/upload', true);
-                // xhr.setRequestHeader('X-CSRFToken', csrfToken); // If using CSRF tokens
-                xhr.send(formData);
-            } // end for loop
+                await uploadSingleFile(file);
+            }
 
             fileUploadInput.value = ''; // Reset input after initiating uploads
         });
@@ -1821,6 +1649,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Global upload configuration cache
+    let uploadConfig = null;
+
+    async function getUploadConfig() {
+        if (!uploadConfig) {
+            try {
+                const response = await fetchAPI('/api/upload/config');
+                uploadConfig = response;
+            } catch (error) {
+                console.warn('Failed to get upload config, using defaults:', error);
+                            uploadConfig = {
+                chunked_upload_enabled: true,
+                chunk_size_mb: 10,
+                max_concurrent_chunks: 3,
+                max_file_size_gb: 8
+            };
+            }
+        }
+        return uploadConfig;
+    }
+
     async function handleFileUploads(files) {
         for (const file of files) {
             await uploadSingleFile(file);
@@ -1828,6 +1677,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function uploadSingleFile(file) {
+        const config = await getUploadConfig();
+        const chunkSizeBytes = config.chunk_size_mb * 1024 * 1024;
+        const maxFileSizeBytes = config.max_file_size_gb * 1024 * 1024 * 1024;
+        
+        // Check file size limit
+        if (file.size > maxFileSizeBytes) {
+            const fileSizeGB = (file.size / (1024 * 1024 * 1024)).toFixed(2);
+            showToast(`File "${file.name}" (${fileSizeGB}GB) exceeds maximum allowed size of ${config.max_file_size_gb}GB.`, 'error');
+            return;
+        }
+        
+        // Use chunked upload for large files or if chunked upload is enabled
+        if (config.chunked_upload_enabled && file.size > chunkSizeBytes) {
+            await uploadFileInChunks(file, config);
+        } else {
+            await uploadFileStandard(file);
+        }
+    }
+
+    async function uploadFileStandard(file) {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('path', currentDirectory);
@@ -1911,5 +1780,170 @@ document.addEventListener('DOMContentLoaded', () => {
             progressBar.style.backgroundColor = 'var(--error-color)';
             showToast(`Failed to upload "${file.name}": ${error.message}`, 'error');
         }
+    }
+
+    async function uploadFileInChunks(file, config) {
+        const chunkSizeBytes = config.chunk_size_mb * 1024 * 1024;
+        const totalChunks = Math.ceil(file.size / chunkSizeBytes);
+        const uploadId = generateUploadId();
+        let uploadCancelled = false;
+
+        // Create progress indicator
+        const progressItem = createUploadProgressItem(file.name, file.size);
+        const progressBar = progressItem.querySelector('.progress-bar');
+        const progressText = progressItem.querySelector('.progress-text');
+        const uploadSpeed = progressItem.querySelector('.upload-speed');
+        const closeButton = progressItem.querySelector('.upload-progress-close');
+
+        // Add cancel functionality
+        const originalCloseHandler = closeButton.onclick;
+        closeButton.onclick = async () => {
+            uploadCancelled = true;
+            try {
+                await fetchAPI('/api/upload/cancel', {
+                    method: 'POST',
+                    body: { uploadId }
+                });
+            } catch (error) {
+                console.warn('Failed to cancel upload on server:', error);
+            }
+            originalCloseHandler();
+        };
+
+        let uploadedBytes = 0;
+        const startTime = Date.now();
+        let chunksCompleted = 0;
+
+        try {
+            // Create chunks and track concurrent uploads
+            const chunks = [];
+            for (let i = 0; i < totalChunks; i++) {
+                const start = i * chunkSizeBytes;
+                const end = Math.min(start + chunkSizeBytes, file.size);
+                chunks.push({ index: i, start, end });
+            }
+
+            // Upload chunks with concurrency limit
+            const maxConcurrent = config.max_concurrent_chunks || 3;
+            const activeUploads = new Set();
+            let chunkIndex = 0;
+
+            const uploadNextChunk = async () => {
+                if (chunkIndex >= chunks.length || uploadCancelled) {
+                    return;
+                }
+
+                const chunk = chunks[chunkIndex++];
+                const chunkData = file.slice(chunk.start, chunk.end);
+                
+                const formData = new FormData();
+                formData.append('chunk', chunkData);
+                formData.append('uploadId', uploadId);
+                formData.append('chunkIndex', chunk.index);
+                formData.append('totalChunks', totalChunks);
+                formData.append('filename', file.name);
+                formData.append('path', currentDirectory);
+
+                try {
+                    // Use XMLHttpRequest for chunk upload to better handle FormData
+                    const response = await new Promise((resolve, reject) => {
+                        const xhr = new XMLHttpRequest();
+                        xhr.open('POST', '/api/upload/chunk');
+                        xhr.onload = () => {
+                            if (xhr.status === 200) {
+                                try {
+                                    resolve(JSON.parse(xhr.responseText));
+                                } catch (e) {
+                                    reject(new Error('Invalid response format'));
+                                }
+                            } else {
+                                reject(new Error(`HTTP ${xhr.status}: ${xhr.statusText}`));
+                            }
+                        };
+                        xhr.onerror = () => reject(new Error('Network error'));
+                        xhr.send(formData);
+                    });
+
+                    if (uploadCancelled) return;
+
+                    if (response.success) {
+                        chunksCompleted++;
+                        uploadedBytes += chunkData.size;
+                        
+                        // Update progress
+                        const percentComplete = (chunksCompleted / totalChunks) * 100;
+                        progressBar.style.width = percentComplete + '%';
+                        progressText.textContent = `${Math.round(percentComplete)}%`;
+                        
+                        // Update speed
+                        const elapsedTime = (Date.now() - startTime) / 1000;
+                        const speed = uploadedBytes / elapsedTime;
+                        uploadSpeed.textContent = `${formatBytes(speed)}/s`;
+
+                        if (response.completed) {
+                            // Upload completed
+                            progressText.textContent = 'Upload complete!';
+                            progressBar.style.backgroundColor = 'var(--success-color)';
+                            showToast(`File "${file.name}" uploaded successfully.`, 'success');
+                            
+                            // Refresh file list
+                            loadFiles(currentDirectory);
+                            
+                            // Auto-hide after 5 seconds
+                            setTimeout(() => {
+                                progressItem.style.transition = 'opacity 1s ease';
+                                progressItem.style.opacity = '0';
+                                setTimeout(() => {
+                                    if (progressItem.parentNode) {
+                                        progressItem.parentNode.removeChild(progressItem);
+                                    }
+                                }, 1000);
+                            }, 5000);
+                        } else {
+                            // Continue uploading next chunk
+                            uploadNextChunk();
+                        }
+                    } else {
+                        throw new Error(response.error || 'Chunk upload failed');
+                    }
+                } catch (error) {
+                    if (!uploadCancelled) {
+                        console.error('Chunk upload failed:', error);
+                        uploadCancelled = true;
+                        progressText.textContent = 'Upload failed!';
+                        progressBar.style.backgroundColor = 'var(--error-color)';
+                        showToast(`Failed to upload "${file.name}": ${error.message}`, 'error');
+                        
+                        // Try to cancel on server
+                        try {
+                            await fetchAPI('/api/upload/cancel', {
+                                method: 'POST',
+                                body: { uploadId }
+                            });
+                        } catch (cancelError) {
+                            console.warn('Failed to cancel upload on server:', cancelError);
+                        }
+                    }
+                } finally {
+                    activeUploads.delete(chunk.index);
+                }
+            };
+
+            // Start initial concurrent uploads
+            for (let i = 0; i < Math.min(maxConcurrent, totalChunks); i++) {
+                uploadNextChunk();
+            }
+
+        } catch (error) {
+            if (!uploadCancelled) {
+                progressText.textContent = 'Upload failed!';
+                progressBar.style.backgroundColor = 'var(--error-color)';
+                showToast(`Failed to upload "${file.name}": ${error.message}`, 'error');
+            }
+        }
+    }
+
+    function generateUploadId() {
+        return 'upload_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     }
 }); 

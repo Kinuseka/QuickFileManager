@@ -320,6 +320,26 @@ def upload_file_api():
     if file.filename == '':
         return jsonify({"error": "No selected file."}), 400
 
+    # Check file size limit
+    config = get_config()
+    upload_config = config.get('upload', {})
+    max_file_size_gb = upload_config.get('max_file_size_gb', 8)
+    max_file_size_bytes = max_file_size_gb * 1024 * 1024 * 1024
+    
+    # Get file size from Content-Length header or seek to end if available
+    file_size = None
+    if hasattr(file, 'content_length') and file.content_length:
+        file_size = file.content_length
+    elif hasattr(file, 'seek') and hasattr(file, 'tell'):
+        # Try to get size by seeking (this might not work in all cases)
+        current_pos = file.tell()
+        file.seek(0, 2)  # Seek to end
+        file_size = file.tell()
+        file.seek(current_pos)  # Restore position
+    
+    if file_size and file_size > max_file_size_bytes:
+        return jsonify({"error": f"File size ({file_size / (1024*1024*1024):.2f}GB) exceeds maximum allowed size of {max_file_size_gb}GB."}), 413
+
     # Get target sub_path from form data (e.g., current directory in file manager)
     upload_sub_path = request.form.get('path', '') # Default to root of managed_dir
 
@@ -336,6 +356,92 @@ def upload_file_api():
     except Exception as e:
         log_user_activity("operation_error", f"Operation: Upload File, Filename: {file.filename}, Path: {upload_sub_path}, Error: {str(e)}")
         return jsonify({"error": "An error occurred uploading the file."}), 500
+
+@app.route('/api/upload/chunk', methods=['POST'])
+@login_required
+def upload_chunk_api():
+    """Handle chunked file uploads."""
+    if not file_manager:
+        return jsonify({"error": "FileManager not initialized"}), 500
+    
+    # Get chunk data from request
+    chunk_data = request.files.get('chunk')
+    if not chunk_data:
+        return jsonify({"error": "No chunk data provided"}), 400
+    
+    upload_id = request.form.get('uploadId')
+    chunk_index = request.form.get('chunkIndex')
+    total_chunks = request.form.get('totalChunks')
+    filename = request.form.get('filename')
+    upload_path = request.form.get('path', '')
+    
+    if not all([upload_id, chunk_index is not None, total_chunks, filename]):
+        return jsonify({"error": "Missing required chunk parameters"}), 400
+    
+    try:
+        chunk_index = int(chunk_index)
+        total_chunks = int(total_chunks)
+    except ValueError:
+        return jsonify({"error": "Invalid chunk parameters"}), 400
+    
+    try:
+        result = file_manager.upload_chunk(
+            chunk_data, upload_id, chunk_index, total_chunks, filename, upload_path
+        )
+        if result.get("error"):
+            return jsonify(result), 400
+        
+        # Log activity for the final chunk
+        if result.get("completed"):
+            log_user_activity("chunked_upload", f"Filename: {filename}, Path: {upload_path}")
+            socketio.emit('file_changed', {
+                'path': result.get('path'), 
+                'action': 'uploaded', 
+                'filename': result.get('filename')
+            }, namespace='/updates')
+        
+        return jsonify(result)
+    except PermissionError as e:
+        log_user_activity("access_denied", f"Attempted: Chunked Upload, Filename: {filename}, Error: {str(e)}")
+        return jsonify({"error": str(e)}), 403
+    except Exception as e:
+        log_user_activity("operation_error", f"Operation: Chunked Upload, Filename: {filename}, Error: {str(e)}")
+        return jsonify({"error": "An error occurred during chunked upload."}), 500
+
+@app.route('/api/upload/cancel', methods=['POST'])
+@login_required
+def cancel_upload_api():
+    """Cancel an ongoing chunked upload and clean up temporary files."""
+    if not file_manager:
+        return jsonify({"error": "FileManager not initialized"}), 500
+    
+    data = request.json or {}
+    upload_id = data.get('uploadId')
+    
+    if not upload_id:
+        return jsonify({"error": "Upload ID is required"}), 400
+    
+    try:
+        result = file_manager.cancel_chunked_upload(upload_id)
+        log_user_activity("upload_cancelled", f"Upload ID: {upload_id}")
+        return jsonify(result)
+    except Exception as e:
+        log_user_activity("operation_error", f"Operation: Cancel Upload, Upload ID: {upload_id}, Error: {str(e)}")
+        return jsonify({"error": "An error occurred cancelling the upload."}), 500
+
+@app.route('/api/upload/config', methods=['GET'])
+@login_required
+def get_upload_config():
+    """Get upload configuration for the client."""
+    config = get_config()
+    upload_config = config.get('upload', {})
+    
+    return jsonify({
+        "chunked_upload_enabled": upload_config.get('enable_chunked_upload', True),
+        "chunk_size_mb": upload_config.get('chunk_size_mb', 10),
+        "max_concurrent_chunks": upload_config.get('max_concurrent_chunks', 3),
+        "max_file_size_gb": upload_config.get('max_file_size_gb', 8)
+    })
         
 @app.route('/download/<path:file_path>')
 @login_required

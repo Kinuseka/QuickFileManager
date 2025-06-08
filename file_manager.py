@@ -21,6 +21,10 @@ except ImportError:
 
 from werkzeug.utils import secure_filename
 from config import get_config
+import tempfile
+import time
+import threading
+import uuid
 
 class FileManager:
     def __init__(self):
@@ -28,10 +32,15 @@ class FileManager:
         self.managed_dir = self._get_managed_dir()  # Cache the managed directory path
         if not self.managed_dir:
             raise Exception("Could not initialize managed directory")
+        
+        # Initialize chunked upload storage
+        self.chunk_uploads = {}  # Store information about ongoing chunked uploads
+        self.upload_lock = threading.Lock()  # Thread safety for chunked uploads
+        self._setup_cleanup_timer()  # Start cleanup timer for abandoned uploads
 
     def _get_managed_dir(self):
         """Get and validate the managed directory path."""
-        managed_dir = self.config.get('managed_dir', './managed_files')
+        managed_dir = self.config.get('managed_directory', './managed_files')
         abs_managed_dir = os.path.abspath(managed_dir)
         
         if not os.path.exists(abs_managed_dir):
@@ -333,6 +342,175 @@ class FileManager:
             return {"success": True, "message": f"File '{filename}' uploaded to '{upload_sub_path}'.", "filename": filename, "path": os.path.join(upload_sub_path, filename).replace('\\','/')}
         except Exception as e:
             return {"error": f"Could not save uploaded file: {str(e)}"}
+
+    def _setup_cleanup_timer(self):
+        """Setup periodic cleanup of abandoned chunked uploads."""
+        def cleanup_abandoned_uploads():
+            while True:
+                time.sleep(300)  # Run every 5 minutes
+                self._cleanup_abandoned_uploads()
+        
+        cleanup_thread = threading.Thread(target=cleanup_abandoned_uploads, daemon=True)
+        cleanup_thread.start()
+
+    def _cleanup_abandoned_uploads(self):
+        """Clean up abandoned chunked uploads older than timeout."""
+        config = get_config()
+        timeout = config.get('upload', {}).get('chunk_timeout', 300)
+        current_time = time.time()
+        
+        with self.upload_lock:
+            abandoned_uploads = []
+            for upload_id, upload_info in self.chunk_uploads.items():
+                if current_time - upload_info['last_activity'] > timeout:
+                    abandoned_uploads.append(upload_id)
+            
+            for upload_id in abandoned_uploads:
+                self._cleanup_upload_chunks(upload_id)
+
+    def _cleanup_upload_chunks(self, upload_id):
+        """Clean up temporary files for a specific upload."""
+        if upload_id not in self.chunk_uploads:
+            return
+        
+        upload_info = self.chunk_uploads[upload_id]
+        temp_dir = upload_info.get('temp_dir')
+        
+        if temp_dir and os.path.exists(temp_dir):
+            try:
+                shutil.rmtree(temp_dir)
+            except Exception as e:
+                print(f"Warning: Could not clean up temp directory {temp_dir}: {e}")
+        
+        del self.chunk_uploads[upload_id]
+
+    def upload_chunk(self, chunk_data, upload_id, chunk_index, total_chunks, filename, upload_path=""):
+        """Handle individual chunk uploads for large files."""
+        with self.upload_lock:
+            # Initialize upload info if this is the first chunk
+            if upload_id not in self.chunk_uploads:
+                # Check file size limit for chunked uploads
+                config = get_config()
+                upload_config = config.get('upload', {})
+                max_file_size_gb = upload_config.get('max_file_size_gb', 8)
+                chunk_size_mb = upload_config.get('chunk_size_mb', 10)
+                
+                # Estimate total file size from chunk count and chunk size
+                estimated_file_size_bytes = total_chunks * chunk_size_mb * 1024 * 1024
+                max_file_size_bytes = max_file_size_gb * 1024 * 1024 * 1024
+                
+                if estimated_file_size_bytes > max_file_size_bytes:
+                    return {"error": f"Estimated file size ({estimated_file_size_bytes / (1024*1024*1024):.2f}GB) exceeds maximum allowed size of {max_file_size_gb}GB."}
+                
+                temp_dir = tempfile.mkdtemp(prefix=f"chunk_upload_{upload_id}_")
+                self.chunk_uploads[upload_id] = {
+                    'temp_dir': temp_dir,
+                    'filename': filename,
+                    'upload_path': upload_path,
+                    'total_chunks': total_chunks,
+                    'chunks_received': set(),
+                    'last_activity': time.time()
+                }
+            
+            upload_info = self.chunk_uploads[upload_id]
+            upload_info['last_activity'] = time.time()
+            
+            # Save chunk to temporary file
+            chunk_filename = f"chunk_{chunk_index:06d}"
+            chunk_path = os.path.join(upload_info['temp_dir'], chunk_filename)
+            
+            try:
+                chunk_data.save(chunk_path)
+                upload_info['chunks_received'].add(chunk_index)
+            except Exception as e:
+                return {"error": f"Failed to save chunk {chunk_index}: {str(e)}"}
+            
+            # Check if all chunks have been received
+            if len(upload_info['chunks_received']) == total_chunks:
+                # Assemble the final file
+                result = self._assemble_chunks(upload_id)
+                if result.get('success'):
+                    self._cleanup_upload_chunks(upload_id)
+                    return {
+                        "success": True, 
+                        "completed": True, 
+                        "message": f"File '{filename}' uploaded successfully.",
+                        "filename": filename,
+                        "path": result.get('path')
+                    }
+                else:
+                    self._cleanup_upload_chunks(upload_id)
+                    return result
+            else:
+                # Return progress info
+                progress = (len(upload_info['chunks_received']) / total_chunks) * 100
+                return {
+                    "success": True, 
+                    "completed": False, 
+                    "progress": progress,
+                    "chunks_received": len(upload_info['chunks_received']),
+                    "total_chunks": total_chunks
+                }
+
+    def _assemble_chunks(self, upload_id):
+        """Assemble all chunks into the final file."""
+        if upload_id not in self.chunk_uploads:
+            return {"error": "Upload information not found"}
+        
+        upload_info = self.chunk_uploads[upload_id]
+        temp_dir = upload_info['temp_dir']
+        filename = secure_filename(upload_info['filename'])
+        upload_path = upload_info['upload_path']
+        total_chunks = upload_info['total_chunks']
+        
+        if not filename:
+            return {"error": "Invalid filename"}
+        
+        # Prepare target directory
+        target_folder = self._get_safe_path(upload_path)
+        if not os.path.isdir(target_folder):
+            try:
+                os.makedirs(target_folder, exist_ok=True)
+            except Exception as e:
+                return {"error": f"Could not create upload directory: {str(e)}"}
+        
+        abs_file_path = os.path.join(target_folder, filename)
+        
+        # Security check
+        if not os.path.normpath(abs_file_path).startswith(self.managed_dir):
+            return {"error": "Upload path is outside managed directory"}
+        
+        try:
+            # Assemble chunks in order
+            with open(abs_file_path, 'wb') as output_file:
+                for chunk_index in range(total_chunks):
+                    chunk_filename = f"chunk_{chunk_index:06d}"
+                    chunk_path = os.path.join(temp_dir, chunk_filename)
+                    
+                    if not os.path.exists(chunk_path):
+                        return {"error": f"Missing chunk {chunk_index}"}
+                    
+                    with open(chunk_path, 'rb') as chunk_file:
+                        shutil.copyfileobj(chunk_file, output_file)
+            
+            final_path = os.path.join(upload_path, filename).replace('\\', '/')
+            return {
+                "success": True, 
+                "message": f"File '{filename}' assembled successfully.",
+                "filename": filename,
+                "path": final_path
+            }
+        except Exception as e:
+            return {"error": f"Failed to assemble file: {str(e)}"}
+
+    def cancel_chunked_upload(self, upload_id):
+        """Cancel a chunked upload and clean up temporary files."""
+        with self.upload_lock:
+            if upload_id in self.chunk_uploads:
+                self._cleanup_upload_chunks(upload_id)
+                return {"success": True, "message": "Upload cancelled and cleaned up"}
+            else:
+                return {"success": True, "message": "Upload not found or already completed"}
 
     def zip_items(self, items_to_zip, archive_name, output_sub_path=""):
         """

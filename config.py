@@ -5,7 +5,14 @@ CONFIG_FILE = "config.yml"
 DEFAULT_CONFIG = {
     "app_password": "change_me_please",
     "managed_directory": "./managed_files",
-    "users": {}
+    "users": {},
+    "upload": {
+        "enable_chunked_upload": True,
+        "chunk_size_mb": 10,  # Size of each chunk in MB
+        "max_concurrent_chunks": 3,  # Maximum concurrent chunks per file
+        "chunk_timeout": 300,  # Timeout for chunk upload in seconds
+        "max_file_size_gb": 8  # Maximum file size limit in GB
+    }
 }
 
 def get_config():
