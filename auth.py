@@ -31,11 +31,16 @@ def write_logs(logs_data):
     except IOError as e:
         print(f"Error writing to log file '{LOG_FILE}': {e}")
 
+# --- IP Address Helper ---
+def get_real_ip():
+    """Get the real client IP address, accounting for reverse proxy."""
+    return request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('HTTP_X_REAL_IP', request.remote_addr)).split(',')[0].strip()
+
 # --- Browser Fingerprinting ---
 def generate_browser_fingerprint():
     """Generate a simple browser fingerprint based on request data."""
     user_agent = request.headers.get('User-Agent', '')
-    ip_address = request.remote_addr
+    ip_address = get_real_ip()
     accept_language = request.headers.get('Accept-Language', '')
     
     # Create a unique identifier from these components
@@ -46,7 +51,7 @@ def get_browser_data():
     """Get current browser data for tracking."""
     now = datetime.datetime.now().isoformat()
     return {
-        "ip_address": request.remote_addr,
+        "ip_address": get_real_ip(),
         "user_agent": request.headers.get('User-Agent', 'Unknown'),
         "browser_identity": generate_browser_fingerprint(),
         "session_id": request.cookies.get('session', ''),
@@ -150,7 +155,7 @@ def get_current_user_info():
             
             return {
                 "username": username,
-                "ip_address": current_browser["ip_address"] if current_browser else request.remote_addr,
+                "ip_address": current_browser["ip_address"] if current_browser else get_real_ip(),
                 "browser": current_browser
             }
     return None
