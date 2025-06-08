@@ -1583,7 +1583,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const fileInfoSpan = document.createElement('span');
         fileInfoSpan.classList.add('file-info');
-        fileInfoSpan.textContent = fileSize ? `${fileName} (${formatBytes(fileSize)})` : fileName;
+        const displayPath = currentDirectory || '/';
+        const fileInfo = fileSize ? `${fileName} (${formatBytes(fileSize)})` : fileName;
+        fileInfoSpan.textContent = `${fileInfo} → ${displayPath}`;
 
         const progressBarContainer = document.createElement('div');
         progressBarContainer.classList.add('progress-bar-container');
@@ -1832,9 +1834,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function uploadFileStandard(file) {
+        const uploadDirectory = currentDirectory; // Capture directory at upload start
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('path', currentDirectory);
+        formData.append('path', uploadDirectory);
 
         // Create progress indicator
         const progressItem = createUploadProgressItem(file.name, file.size);
@@ -1867,8 +1870,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         progressBar.style.backgroundColor = 'var(--success-color)';
                         showToast(`File "${file.name}" uploaded successfully.`, 'success');
                         
-                        // Refresh file list to show the new file
-                        loadFiles(currentDirectory);
+                        // Refresh file list to show the new file if we're still in the upload directory
+                        if (currentDirectory === uploadDirectory) {
+                            loadFiles(currentDirectory);
+                        }
                         
                         // Auto-hide after 5 seconds
                         setTimeout(() => {
@@ -1918,6 +1923,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function uploadFileInChunks(file, config) {
+        const uploadDirectory = currentDirectory; // Capture directory at upload start
         const chunkSizeBytes = config.chunk_size_mb * 1024 * 1024;
         const totalChunks = Math.ceil(file.size / chunkSizeBytes);
         const uploadId = generateUploadId();
@@ -1980,7 +1986,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 formData.append('chunkIndex', chunk.index);
                 formData.append('totalChunks', totalChunks);
                 formData.append('filename', file.name);
-                formData.append('path', currentDirectory);
+                formData.append('path', uploadDirectory);
 
                 let chunkBytesUploaded = 0; // Track bytes uploaded for this specific chunk
 
@@ -2049,8 +2055,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             progressBar.style.backgroundColor = 'var(--success-color)';
                             showToast(`File "${file.name}" uploaded successfully.`, 'success');
                             
-                            // Refresh file list
-                            loadFiles(currentDirectory);
+                            // Refresh file list if we're still in the upload directory
+                            if (currentDirectory === uploadDirectory) {
+                                loadFiles(currentDirectory);
+                            }
                             
                             // Auto-hide after 5 seconds
                             setTimeout(() => {
