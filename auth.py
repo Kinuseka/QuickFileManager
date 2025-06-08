@@ -33,8 +33,8 @@ def write_logs(logs_data):
 
 # --- IP Address Helper ---
 def get_real_ip():
-    """Get the real client IP address, accounting for reverse proxy."""
-    return request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('HTTP_X_REAL_IP', request.remote_addr)).split(',')[0].strip()
+    """Get the real client IP address. ProxyFix should handle proxy headers."""
+    return request.remote_addr
 
 # --- Browser Fingerprinting ---
 def generate_browser_fingerprint():

@@ -9,7 +9,7 @@ import time
 import atexit
 
 from config import get_config, save_config # save_config is needed for updating user SIDs
-from auth import login_required, handle_login, handle_logout, get_current_user_info, get_active_users_count, add_activity_log, read_logs, get_recent_logs # Added read_logs, get_recent_logs
+from auth import login_required, handle_login, handle_logout, get_current_user_info, get_active_users_count, add_activity_log, read_logs, get_recent_logs, get_real_ip # Added read_logs, get_recent_logs, get_real_ip
 from file_manager import FileManager
 
 # File system monitoring
@@ -64,7 +64,7 @@ def log_user_activity(action, details="", username=None, ip_address=None):
             user_info = get_current_user_info()
             if user_info:
                 username = user_info.get('username', 'Unknown')
-                ip_address = user_info.get('ip_address', request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('HTTP_X_REAL_IP', request.remote_addr)).split(',')[0].strip())
+                ip_address = user_info.get('ip_address', get_real_ip())
             else:
                 # Fallback for contexts without a logged-in user (e.g., system events)
                 username = username or "SYSTEM"
@@ -110,7 +110,7 @@ def login():
             return redirect(next_url or url_for('index'))
         else:
             error = "Invalid credentials. Please try again."
-            add_activity_log(username or "Unknown_User", request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('HTTP_X_REAL_IP', request.remote_addr)).split(',')[0].strip(), "login_fail")
+            add_activity_log(username or "Unknown_User", get_real_ip(), "login_fail")
             
     return render_template('login.html', error=error)
 
