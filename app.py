@@ -470,7 +470,7 @@ def download_file(file_path):
 
         if is_preview and not force_download:
             return send_from_directory(os.path.dirname(abs_file_path), os.path.basename(abs_file_path), mimetype=mimetype)
-        elif force_download or not mimetype.startswith(('image/', 'video/', 'text/', 'application/pdf')):
+        elif force_download or not mimetype.startswith(('image/', 'video/', 'audio/', 'text/', 'application/pdf')):
              return send_from_directory(os.path.dirname(abs_file_path), os.path.basename(abs_file_path), as_attachment=True, mimetype=mimetype)
         else: 
              return send_from_directory(os.path.dirname(abs_file_path), os.path.basename(abs_file_path), mimetype=mimetype)

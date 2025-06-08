@@ -496,52 +496,66 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // --- File Format Definitions ---
+    const FILE_FORMATS = {
+        text: ['txt', 'md', 'json', 'js', 'css', 'html', 'xml', 'csv', 'log', 'py', 'java', 'cpp', 'c', 'h', 'php', 'rb', 'go', 'rs', 'yml', 'yaml', 'ini', 'cfg', 'conf', 'rst', 'tex', 'adoc', 'wiki'],
+        image: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp'],
+        video: ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'],
+        videoPreview: ['mp4', 'webm', 'ogg', 'mov', 'mkv'],
+        audio: ['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'wma'],
+        office: ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'],
+        officeWord: ['doc', 'docx'],
+        officeExcel: ['xls', 'xlsx'],
+        officePowerPoint: ['ppt', 'pptx'],
+        code: ['js', 'html', 'css', 'py', 'java', 'c', 'cpp'],
+        archive: ['.zip', '.rar', '.7z', '.tar', '.tar.gz', '.tar.bz2', '.tar.xz', '.tgz', '.tbz2', '.gz', '.bz2', '.xz'],
+        newFileDefaults: ['txt', 'md', 'json', 'js', 'css', 'html', 'xml', 'log', 'py', 'yml', 'rst', 'tex', 'adoc', 'wiki']
+    };
+
     // --- File Preview Logic ---
     const textEditorContainer = document.getElementById('text-editor-container');
     const imagePreviewContainer = document.getElementById('image-preview-container');
     const imagePreviewElement = document.getElementById('image-preview-element');
     const videoPreviewContainer = document.getElementById('video-preview-container');
     const videoPreviewElement = document.getElementById('video-preview-element');
+    const audioPreviewContainer = document.getElementById('audio-preview-container');
+    const audioPreviewElement = document.getElementById('audio-preview-element');
     const zipPreviewContainer = document.getElementById('zip-preview-container');
     const zipContentsList = document.getElementById('zip-contents-list');
     const genericPreviewMessage = document.getElementById('generic-preview-message');
 
     function getFileIconClass(filename) {
         const extension = filename.split('.').pop().toLowerCase();
-        switch (extension) {
-            case 'txt': return 'fa-file-alt';
-            case 'doc': case 'docx': return 'fa-file-word';
-            case 'xls': case 'xlsx': return 'fa-file-excel';
-            case 'ppt': case 'pptx': return 'fa-file-powerpoint';
-            case 'pdf': return 'fa-file-pdf';
-            case 'zip': case 'rar': case '7z': case 'tar': case 'gz': case 'bz2': case 'xz': case 'tgz': case 'tbz2': return 'fa-file-archive';
-            case 'jpg': case 'jpeg': case 'png': case 'gif': case 'bmp': case 'svg': return 'fa-file-image';
-            case 'mp4': case 'mov': case 'avi': case 'wmv': case 'mkv': return 'fa-file-video';
-            case 'mp3': case 'wav': case 'ogg': return 'fa-file-audio';
-            case 'js': case 'html': case 'css': case 'py': case 'java': case 'c': case 'cpp': return 'fa-file-code';
-            default: return 'fa-file'; // Generic file icon
-        }
+        
+        if (extension === 'txt') return 'fa-file-alt';
+        if (FILE_FORMATS.officeWord.includes(extension)) return 'fa-file-word';
+        if (FILE_FORMATS.officeExcel.includes(extension)) return 'fa-file-excel';
+        if (FILE_FORMATS.officePowerPoint.includes(extension)) return 'fa-file-powerpoint';
+        if (extension === 'pdf') return 'fa-file-pdf';
+        if (isArchive(filename)) return 'fa-file-archive';
+        if (FILE_FORMATS.image.includes(extension)) return 'fa-file-image';
+        if (FILE_FORMATS.video.includes(extension)) return 'fa-file-video';
+        if (FILE_FORMATS.audio.includes(extension)) return 'fa-file-audio';
+        if (FILE_FORMATS.code.includes(extension)) return 'fa-file-code';
+        
+        return 'fa-file'; // Generic file icon
     }
 
     function isArchive(filename) {
         const ext = filename.toLowerCase();
-        const archiveExtensions = ['.zip', '.rar', '.7z', '.tar', '.tar.gz', '.tar.bz2', '.tar.xz', '.tgz', '.tbz2', '.gz', '.bz2', '.xz'];
-        return archiveExtensions.some(archiveExt => ext.endsWith(archiveExt));
+        return FILE_FORMATS.archive.some(archiveExt => ext.endsWith(archiveExt));
     }
 
     function isPreviewable(filename) {
         const ext = filename.toLowerCase().split('.').pop();
-        const textExtensions = ['txt', 'md', 'json', 'js', 'css', 'html', 'xml', 'csv', 'log', 'py', 'java', 'cpp', 'c', 'h', 'php', 'rb', 'go', 'rs', 'yml', 'yaml', 'ini', 'cfg', 'conf'];
-        const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp'];
-        const videoExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'];
-        const officeExtensions = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
         
-        return textExtensions.includes(ext) || 
-               imageExtensions.includes(ext) || 
-               videoExtensions.includes(ext) || 
-               officeExtensions.includes(ext) ||
+        return FILE_FORMATS.text.includes(ext) || 
+               FILE_FORMATS.image.includes(ext) || 
+               FILE_FORMATS.video.includes(ext) || 
+               FILE_FORMATS.audio.includes(ext) ||
+               FILE_FORMATS.office.includes(ext) ||
                ext === 'pdf' ||
-               isArchive(filename); // Add archive preview support
+               isArchive(filename);
     }
 
     async function openFilePreview(filePath, isNewFile = false) {
@@ -553,6 +567,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if(textEditorContainer) textEditorContainer.style.display = 'none';
         if(imagePreviewContainer) imagePreviewContainer.style.display = 'none';
         if(videoPreviewContainer) videoPreviewContainer.style.display = 'none';
+        if(audioPreviewContainer) audioPreviewContainer.style.display = 'none';
         if(zipPreviewContainer) zipPreviewContainer.style.display = 'none';
         if(iframePreviewContainer) iframePreviewContainer.style.display = 'none'; // Hide new container
         if(genericPreviewMessage) genericPreviewMessage.style.display = 'none';
@@ -561,10 +576,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const extension = fileName.split('.').pop().toLowerCase();
         const directFileUrl = `/download/${encodeURIComponent(filePath)}?context=preview&v=${Date.now()}`; // Add cache buster
 
-        if (isNewFile && (['txt', 'md', 'json', 'js', 'css', 'html', 'xml', 'log', 'py', 'yml'].includes(extension) || !extension )) {
+        if (isNewFile && (FILE_FORMATS.newFileDefaults.includes(extension) || !extension )) {
             if(textEditorContainer) textEditorContainer.style.display = 'block';
             if(fileContentEditor) fileContentEditor.value = ''; 
-        } else if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp'].includes(extension)) {
+        } else if (FILE_FORMATS.image.includes(extension)) {
             if(imagePreviewContainer) imagePreviewContainer.style.display = 'block';
             if(imagePreviewElement) {
                 imagePreviewElement.src = directFileUrl;
@@ -582,7 +597,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     genericPreviewMessage.textContent = `Could not load image preview for ${fileName}. The file might be corrupted or not a valid image.`;
                 };
             }
-        } else if (['mp4', 'webm', 'ogg', 'mov', 'mkv'].includes(extension)) { 
+        } else if (FILE_FORMATS.videoPreview.includes(extension)) { 
             if(videoPreviewContainer) videoPreviewContainer.style.display = 'block';
             if(videoPreviewElement) {
                 videoPreviewElement.src = directFileUrl; 
@@ -591,6 +606,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     videoPreviewContainer.style.display = 'none';
                     genericPreviewMessage.style.display = 'block';
                     genericPreviewMessage.textContent = `Could not load video preview for ${fileName}. The file might be corrupted or not a valid video format.`;
+                };
+            }
+        } else if (FILE_FORMATS.audio.includes(extension)) {
+            if(audioPreviewContainer) audioPreviewContainer.style.display = 'block';
+            if(audioPreviewElement) {
+                audioPreviewElement.src = directFileUrl;
+                audioPreviewElement.load();
+                audioPreviewElement.onerror = () => {
+                    audioPreviewContainer.style.display = 'none';
+                    genericPreviewMessage.style.display = 'block';
+                    genericPreviewMessage.textContent = `Could not load audio preview for ${fileName}. The file might be corrupted or not a valid audio format.`;
                 };
             }
         } else if (isArchive(fileName)) {
@@ -606,7 +632,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     genericPreviewMessage.textContent = `Preview component for PDF not found.`;
                 }
             }
-        } else if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(extension)) {
+        } else if (FILE_FORMATS.office.includes(extension)) {
             if(iframePreviewContainer && iframePreviewElement) {
                 iframePreviewContainer.style.display = 'block';
                 const absoluteFileUrl = new URL(directFileUrl, window.location.origin).href;
@@ -619,7 +645,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     genericPreviewMessage.textContent = `Preview component for Office documents not found.`;
                 }
             }
-        } else if (['txt', 'md', 'json', 'js', 'css', 'html', 'xml', 'csv', 'log', 'py', 'java', 'cpp', 'c', 'h', 'php', 'rb', 'go', 'rs', 'yml', 'yaml', 'ini', 'cfg', 'conf'].includes(extension)) {
+        } else if (FILE_FORMATS.text.includes(extension)) {
             if(textEditorContainer) textEditorContainer.style.display = 'block';
             const data = await fetchAPI(`/api/file/content?path=${encodeURIComponent(filePath)}`);
             if (fileContentEditor) {
