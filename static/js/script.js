@@ -692,6 +692,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Stop and unload video
         if (videoPreviewElement) {
             videoPreviewElement.pause();
+            videoPreviewElement.onerror = null; // Remove error handler before clearing
             videoPreviewElement.src = '';
             videoPreviewElement.load(); // Reset video element
         }
@@ -699,12 +700,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Stop and unload audio
         if (audioPreviewElement) {
             audioPreviewElement.pause();
+            audioPreviewElement.onerror = null; // Remove error handler before clearing
             audioPreviewElement.src = '';
             audioPreviewElement.load(); // Reset audio element
         }
         
         // Clear image
         if (imagePreviewElement) {
+            imagePreviewElement.onerror = null; // Remove error handler before clearing
             imagePreviewElement.src = '';
             imagePreviewElement.onclick = null;
         }
