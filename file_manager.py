@@ -386,70 +386,71 @@ class FileManager:
 
     def upload_chunk(self, chunk_data, upload_id, chunk_index, total_chunks, filename, upload_path=""):
         """Handle individual chunk uploads for large files."""
-        # Initialize upload info if this is the first chunk
-        if upload_id not in self.chunk_uploads:
-            # Check file size limit for chunked uploads
-            config = get_config()
-            upload_config = config.get('upload', {})
-            max_file_size_gb = upload_config.get('max_file_size_gb', 8)
-            chunk_size_mb = upload_config.get('chunk_size_mb', 10)
+        with self.upload_lock:
+            # Initialize upload info if this is the first chunk
+            if upload_id not in self.chunk_uploads:
+                # Check file size limit for chunked uploads
+                config = get_config()
+                upload_config = config.get('upload', {})
+                max_file_size_gb = upload_config.get('max_file_size_gb', 8)
+                chunk_size_mb = upload_config.get('chunk_size_mb', 10)
+                
+                # Estimate total file size from chunk count and chunk size
+                estimated_file_size_bytes = total_chunks * chunk_size_mb * 1024 * 1024
+                max_file_size_bytes = max_file_size_gb * 1024 * 1024 * 1024
+                
+                if estimated_file_size_bytes > max_file_size_bytes:
+                    return {"error": f"Estimated file size ({estimated_file_size_bytes / (1024*1024*1024):.2f}GB) exceeds maximum allowed size of {max_file_size_gb}GB."}
+                
+                temp_dir = tempfile.mkdtemp(prefix=f"chunk_upload_{upload_id}_")
+                self.chunk_uploads[upload_id] = {
+                    'temp_dir': temp_dir,
+                    'filename': filename,
+                    'upload_path': upload_path,
+                    'total_chunks': total_chunks,
+                    'chunks_received': set(),
+                    'last_activity': time.time()
+                }
             
-            # Estimate total file size from chunk count and chunk size
-            estimated_file_size_bytes = total_chunks * chunk_size_mb * 1024 * 1024
-            max_file_size_bytes = max_file_size_gb * 1024 * 1024 * 1024
+            upload_info = self.chunk_uploads[upload_id]
+            upload_info['last_activity'] = time.time()
             
-            if estimated_file_size_bytes > max_file_size_bytes:
-                return {"error": f"Estimated file size ({estimated_file_size_bytes / (1024*1024*1024):.2f}GB) exceeds maximum allowed size of {max_file_size_gb}GB."}
+            # Save chunk to temporary file
+            chunk_filename = f"chunk_{chunk_index:06d}"
+            chunk_path = os.path.join(upload_info['temp_dir'], chunk_filename)
             
-            temp_dir = tempfile.mkdtemp(prefix=f"chunk_upload_{upload_id}_")
-            self.chunk_uploads[upload_id] = {
-                'temp_dir': temp_dir,
-                'filename': filename,
-                'upload_path': upload_path,
-                'total_chunks': total_chunks,
-                'chunks_received': set(),
-                'last_activity': time.time()
-            }
-        
-        upload_info = self.chunk_uploads[upload_id]
-        upload_info['last_activity'] = time.time()
-        
-        # Save chunk to temporary file
-        chunk_filename = f"chunk_{chunk_index:06d}"
-        chunk_path = os.path.join(upload_info['temp_dir'], chunk_filename)
-        
-        try:
-            chunk_data.save(chunk_path)
-            upload_info['chunks_received'].add(chunk_index)
-        except Exception as e:
-            return {"error": f"Failed to save chunk {chunk_index}: {str(e)}"}
-        
-        # Check if all chunks have been received
-        if len(upload_info['chunks_received']) == total_chunks:
-            # Assemble the final file
-            result = self._assemble_chunks(upload_id)
-            if result.get('success'):
-                self._cleanup_upload_chunks(upload_id)
+            try:
+                chunk_data.save(chunk_path)
+                upload_info['chunks_received'].add(chunk_index)
+            except Exception as e:
+                return {"error": f"Failed to save chunk {chunk_index}: {str(e)}"}
+            
+            # Check if all chunks have been received
+            if len(upload_info['chunks_received']) == total_chunks:
+                # Assemble the final file
+                result = self._assemble_chunks(upload_id)
+                if result.get('success'):
+                    self._cleanup_upload_chunks(upload_id)
+                    return {
+                        "success": True, 
+                        "completed": True, 
+                        "message": f"File '{filename}' uploaded successfully.",
+                        "filename": filename,
+                        "path": result.get('path')
+                    }
+                else:
+                    self._cleanup_upload_chunks(upload_id)
+                    return result
+            else:
+                # Return progress info
+                progress = (len(upload_info['chunks_received']) / total_chunks) * 100
                 return {
                     "success": True, 
-                    "completed": True, 
-                    "message": f"File '{filename}' uploaded successfully.",
-                    "filename": filename,
-                    "path": result.get('path')
+                    "completed": False, 
+                    "progress": progress,
+                    "chunks_received": len(upload_info['chunks_received']),
+                    "total_chunks": total_chunks
                 }
-            else:
-                self._cleanup_upload_chunks(upload_id)
-                return result
-        else:
-            # Return progress info
-            progress = (len(upload_info['chunks_received']) / total_chunks) * 100
-            return {
-                "success": True, 
-                "completed": False, 
-                "progress": progress,
-                "chunks_received": len(upload_info['chunks_received']),
-                "total_chunks": total_chunks
-            }
 
     def _assemble_chunks(self, upload_id):
         """Assemble all chunks into the final file."""
