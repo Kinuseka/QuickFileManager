@@ -1854,6 +1854,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const maxConcurrent = config.max_concurrent_chunks || 3;
             const activeUploads = new Set();
             let chunkIndex = 0;
+            const chunksStatus = new Array(totalChunks).fill('pending'); // Track status of each chunk
 
             const uploadNextChunk = async () => {
                 if (chunkIndex >= chunks.length || uploadCancelled) {
@@ -1915,8 +1916,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (uploadCancelled) return;
 
                     if (response.success) {
-                        chunksCompleted++;
-                        uploadedBytes += chunkData.size;
+                        // Only count this chunk if it wasn't already completed (prevents double-counting retries)
+                        if (chunksStatus[chunk.index] !== 'completed') {
+                            chunksStatus[chunk.index] = 'completed';
+                            chunksCompleted++;
+                            uploadedBytes += chunkData.size;
+                        }
                         currentUploadingBytes -= chunkBytesUploaded; // Remove this chunk's bytes from current uploading
                         
                         // Update progress
@@ -1957,8 +1962,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } catch (error) {
                     // Retry logic: allow up to 3 retries for non-200 responses
-                    if (!uploadCancelled && chunk.retryCount < 3) {
+                    if (!uploadCancelled && chunk.retryCount < 3 && chunksStatus[chunk.index] !== 'completed') {
                         chunk.retryCount++;
+                        chunksStatus[chunk.index] = 'retrying';
                         console.warn(`Chunk ${chunk.index} failed, retrying (${chunk.retryCount}/3):`, error.message);
                         chunkIndex--; // Put chunk back in queue
                         setTimeout(() => uploadNextChunk(), 1000 * chunk.retryCount); // Exponential backoff
