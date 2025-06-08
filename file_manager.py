@@ -605,9 +605,13 @@ class FileManager:
         if not new_name_unsafe or not new_name_unsafe.strip():
             return {"error": "New name cannot be empty."}
 
-        # Secure the new name part itself, not the whole path
-        new_name_safe = secure_filename(new_name_unsafe.strip())
-        if not new_name_safe:
+        # Custom filename validation that allows spaces but ensures security
+        new_name_stripped = new_name_unsafe.strip()
+        # Remove dangerous characters but keep spaces and common filename characters
+        import re
+        new_name_safe = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '', new_name_stripped)
+        # Prevent names that are just dots or empty after cleaning
+        if not new_name_safe or new_name_safe in ('.', '..'):
              return {"error": f"Invalid new name after sanitization: '{new_name_unsafe}'."}
 
         try:
