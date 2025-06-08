@@ -559,6 +559,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function openFilePreview(filePath, isNewFile = false) {
+        // Clean up any previous preview first
+        cleanupPreviousPreview();
+        
         currentlyEditingPath = filePath;
         const fileName = filePath.split('/').pop();
         if(editingFilenameDisplay) editingFilenameDisplay.textContent = fileName;
@@ -685,9 +688,46 @@ document.addEventListener('DOMContentLoaded', () => {
         closePreviewButton.addEventListener('click', closeFilePreview);
     }
 
+    function cleanupPreviousPreview() {
+        // Stop and unload video
+        if (videoPreviewElement) {
+            videoPreviewElement.pause();
+            videoPreviewElement.src = '';
+            videoPreviewElement.load(); // Reset video element
+        }
+        
+        // Stop and unload audio
+        if (audioPreviewElement) {
+            audioPreviewElement.pause();
+            audioPreviewElement.src = '';
+            audioPreviewElement.load(); // Reset audio element
+        }
+        
+        // Clear image
+        if (imagePreviewElement) {
+            imagePreviewElement.src = '';
+            imagePreviewElement.onclick = null;
+        }
+        
+        // Clear iframe (PDF/Office docs)
+        if (iframePreviewElement) {
+            iframePreviewElement.src = '';
+        }
+        
+        // Clear text editor
+        if (fileContentEditor) {
+            fileContentEditor.value = '';
+        }
+        
+        // Clear archive contents
+        if (zipContentsList) {
+            zipContentsList.innerHTML = '';
+        }
+    }
+
     function closeFilePreview() {
+        cleanupPreviousPreview();
         filePreviewArea.style.display = 'none';
-        fileContentEditor.value = '';
         editingFilenameDisplay.textContent = '';
         currentlyEditingPath = null;
     }
