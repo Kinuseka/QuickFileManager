@@ -1860,6 +1860,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const chunk = chunks[chunkIndex++];
+                chunk.retryCount = chunk.retryCount || 0;
                 const chunkData = file.slice(chunk.start, chunk.end);
                 
                 const formData = new FormData();
@@ -1875,6 +1876,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     const response = await new Promise((resolve, reject) => {
                         const xhr = new XMLHttpRequest();
                         xhr.open('POST', '/api/upload/chunk');
+                        
+                        // Update speed during upload
+                        xhr.upload.addEventListener('progress', (e) => {
+                            if (e.lengthComputable) {
+                                const currentChunkBytes = uploadedBytes + e.loaded;
+                                const elapsedTime = (Date.now() - startTime) / 1000;
+                                if (elapsedTime > 0) {
+                                    const speed = currentChunkBytes / elapsedTime;
+                                    uploadSpeed.textContent = `${formatBytes(speed)}/s`;
+                                }
+                            }
+                        });
+                        
                         xhr.onload = () => {
                             if (xhr.status === 200) {
                                 try {
@@ -1901,7 +1915,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         progressBar.style.width = percentComplete + '%';
                         progressText.textContent = `${Math.round(percentComplete)}%`;
                         
-                        // Update speed
+                        // Update final speed
                         const elapsedTime = (Date.now() - startTime) / 1000;
                         const speed = uploadedBytes / elapsedTime;
                         uploadSpeed.textContent = `${formatBytes(speed)}/s`;
@@ -1933,8 +1947,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         throw new Error(response.error || 'Chunk upload failed');
                     }
                 } catch (error) {
+                    // Retry logic: allow up to 3 retries for non-200 responses
+                    if (!uploadCancelled && chunk.retryCount < 3) {
+                        chunk.retryCount++;
+                        console.warn(`Chunk ${chunk.index} failed, retrying (${chunk.retryCount}/3):`, error.message);
+                        chunkIndex--; // Put chunk back in queue
+                        setTimeout(() => uploadNextChunk(), 1000 * chunk.retryCount); // Exponential backoff
+                        return;
+                    }
+                    
                     if (!uploadCancelled) {
-                        console.error('Chunk upload failed:', error);
+                        console.error('Chunk upload failed after 3 retries:', error);
                         uploadCancelled = true;
                         progressText.textContent = 'Upload failed!';
                         progressBar.style.backgroundColor = 'var(--error-color)';
