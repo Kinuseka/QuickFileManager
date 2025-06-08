@@ -9,7 +9,7 @@ import time
 import atexit
 
 from config import get_config, save_config # save_config is needed for updating user SIDs
-from auth import login_required, handle_login, handle_logout, get_current_user_info, get_active_users_count, add_activity_log, read_logs, get_recent_logs, get_real_ip # Added read_logs, get_recent_logs, get_real_ip
+from auth import login_required, handle_login, handle_logout, get_current_user_info, get_active_users_count, add_activity_log, read_logs, get_recent_logs, get_real_ip, generate_browser_fingerprint, get_browser_data # Added read_logs, get_recent_logs, get_real_ip, generate_browser_fingerprint, get_browser_data
 from file_manager import FileManager
 
 # File system monitoring
@@ -826,6 +826,102 @@ def user_status_api():
             "user_count": active_users
         })
     return jsonify({"logged_in": False, "user_count": active_users}), 401
+
+@app.route('/debug/request-info', methods=['GET'])
+@login_required
+def debug_request_info():
+    """Debug route showing comprehensive request information including headers and IP details."""
+    
+    # Get all request headers
+    headers_dict = dict(request.headers)
+    
+    # Get IP information
+    real_ip = get_real_ip()
+    remote_addr = request.remote_addr
+    
+    # Get proxy-related headers specifically
+    proxy_headers = {
+        'X-Forwarded-For': request.headers.get('X-Forwarded-For'),
+        'X-Real-IP': request.headers.get('X-Real-IP'),
+        'X-Forwarded-Proto': request.headers.get('X-Forwarded-Proto'),
+        'X-Forwarded-Host': request.headers.get('X-Forwarded-Host'),
+        'CF-Connecting-IP': request.headers.get('CF-Connecting-IP'),  # CloudFlare
+        'True-Client-IP': request.headers.get('True-Client-IP'),      # CloudFlare
+        'X-Client-IP': request.headers.get('X-Client-IP'),
+        'X-Cluster-Client-IP': request.headers.get('X-Cluster-Client-IP'),
+        'Forwarded': request.headers.get('Forwarded'),
+    }
+    
+    # Filter out None values
+    proxy_headers = {k: v for k, v in proxy_headers.items() if v is not None}
+    
+    # Get user and session information
+    user_info = get_current_user_info()
+    
+    # Get browser data
+    try:
+        browser_data = get_browser_data()
+        browser_fingerprint = generate_browser_fingerprint()
+    except Exception as e:
+        browser_data = {"error": str(e)}
+        browser_fingerprint = f"Error: {e}"
+    
+    # Get environment information
+    environ_info = {
+        'REQUEST_METHOD': request.method,
+        'PATH_INFO': request.path,
+        'QUERY_STRING': request.query_string.decode('utf-8'),
+        'CONTENT_TYPE': request.content_type,
+        'CONTENT_LENGTH': request.content_length,
+        'SERVER_NAME': request.host,
+        'SERVER_PORT': request.environ.get('SERVER_PORT'),
+        'SCRIPT_NAME': request.script_root,
+        'REQUEST_URI': request.url,
+        'HTTP_HOST': request.environ.get('HTTP_HOST'),
+        'REMOTE_ADDR': request.environ.get('REMOTE_ADDR'),
+        'REMOTE_HOST': request.environ.get('REMOTE_HOST'),
+        'REMOTE_USER': request.environ.get('REMOTE_USER'),
+    }
+    
+    # Get WSGI environ keys related to proxy/IP
+    wsgi_ip_keys = {}
+    for key, value in request.environ.items():
+        if any(term in key.upper() for term in ['IP', 'ADDR', 'FORWARD', 'PROXY', 'CLIENT', 'REAL']):
+            wsgi_ip_keys[key] = value
+    
+    debug_info = {
+        "timestamp": datetime.datetime.now().isoformat(),
+        "ip_information": {
+            "get_real_ip()": real_ip,
+            "request.remote_addr": remote_addr,
+            "ip_sources_match": real_ip == remote_addr
+        },
+        "proxy_headers": proxy_headers,
+        "all_headers": headers_dict,
+        "wsgi_ip_environ": wsgi_ip_keys,
+        "request_environ": environ_info,
+        "session_info": {
+            "session_id": request.cookies.get('session'),
+            "username": session.get('username'),
+            "session_keys": list(session.keys()) if session else []
+        },
+        "user_info": user_info,
+        "browser_info": {
+            "fingerprint": browser_fingerprint,
+            "data": browser_data,
+            "user_agent": request.headers.get('User-Agent')
+        },
+        "flask_info": {
+            "is_secure": request.is_secure,
+            "scheme": request.scheme,
+            "endpoint": request.endpoint,
+            "view_args": request.view_args,
+            "base_url": request.base_url,
+            "url_root": request.url_root
+        }
+    }
+    
+    return jsonify(debug_info)
 
 @app.route('/rename', methods=['POST'])
 @login_required
