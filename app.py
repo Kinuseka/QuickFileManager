@@ -294,8 +294,8 @@ def batch_delete_api():
         deleted_paths = [res['path'] for res in results.get('results', []) if res['status'] == 'success']
         if deleted_paths:
             log_user_activity("batch_delete", f"Paths: {', '.join(deleted_paths)}")
-            for path in deleted_paths: # Emit change for each deleted item
-                 socketio.emit('file_changed', {'path': path, 'action': 'deleted'}, namespace='/updates')
+            # Emit a single batch delete event instead of individual events
+            socketio.emit('file_changed', {'paths': deleted_paths, 'action': 'batch_deleted'}, namespace='/updates')
         if not results.get("success"): # If any operation failed
             failed_paths = [res['path'] for res in results.get('results', []) if res['status'] == 'error']
             log_user_activity("operation_error", f"Operation: Batch Delete, Failed paths: {', '.join(failed_paths)}")

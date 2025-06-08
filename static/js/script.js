@@ -1110,6 +1110,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (oldParent === currentPath || newParent === currentPath) {
                 shouldRefresh = true;
             }
+        } else if (data.action === 'batch_deleted' && data.paths) {
+            // For batch delete, check if any of the deleted items affects current view
+            for (const path of data.paths) {
+                const itemParent = path && path.includes('/') ? 
+                    path.substring(0, path.lastIndexOf('/')) : '';
+                
+                if (itemParent === currentPath || path === currentPath) {
+                    shouldRefresh = true;
+                    break; // No need to check further once we know we need to refresh
+                }
+            }
         } else {
             // For other actions, check if the path affects current view
             const itemParent = data.path && data.path.includes('/') ? 
