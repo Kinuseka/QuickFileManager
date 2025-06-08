@@ -1872,6 +1872,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 formData.append('filename', file.name);
                 formData.append('path', currentDirectory);
 
+                let chunkBytesUploaded = 0; // Track bytes uploaded for this specific chunk
+
                 try {
                     // Use XMLHttpRequest for chunk upload to better handle FormData
                     const response = await new Promise((resolve, reject) => {
@@ -1879,7 +1881,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         xhr.open('POST', '/api/upload/chunk');
                         
                         // Update speed during upload
-                        let chunkBytesUploaded = 0;
                         xhr.upload.addEventListener('progress', (e) => {
                             if (e.lengthComputable) {
                                 // Update current uploading bytes for this chunk
