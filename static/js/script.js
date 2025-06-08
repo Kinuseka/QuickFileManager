@@ -1951,10 +1951,8 @@ document.addEventListener('DOMContentLoaded', () => {
             originalCloseHandler();
         };
 
-        let uploadedBytes = 0;
         const startTime = Date.now();
-        let chunksCompleted = 0;
-        let currentUploadingBytes = 0; // Track bytes currently being uploaded across all chunks
+        const chunkBytesUploaded = new Array(totalChunks).fill(0); // Track bytes uploaded per chunk
 
         try {
             // Create chunks and track concurrent uploads
@@ -1992,8 +1990,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 formData.append('filename', file.name);
                 formData.append('path', uploadDirectory);
 
-                let chunkBytesUploaded = 0; // Track bytes uploaded for this specific chunk
-
                 try {
                     // Use XMLHttpRequest for chunk upload to better handle FormData
                     const response = await new Promise((resolve, reject) => {
@@ -2002,16 +1998,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                         // Update speed during upload
                         xhr.upload.addEventListener('progress', (e) => {
-                            if (e.lengthComputable) {
-                                // Update current uploading bytes for this chunk
-                                currentUploadingBytes = currentUploadingBytes - chunkBytesUploaded + e.loaded;
-                                chunkBytesUploaded = e.loaded;
+                            if (e.lengthComputable && !uploadCancelled) {
+                                // Update bytes for this specific chunk (for speed calculation)
+                                chunkBytesUploaded[chunk.index] = e.loaded;
                                 
-                                // Calculate total speed including all active uploads
-                                const totalCurrentBytes = uploadedBytes + currentUploadingBytes;
+                                // Calculate total uploaded bytes and speed
+                                const totalUploadedBytes = chunkBytesUploaded.reduce((sum, bytes) => sum + bytes, 0);
                                 const elapsedTime = (Date.now() - startTime) / 1000;
                                 if (elapsedTime > 0) {
-                                    const speed = totalCurrentBytes / elapsedTime;
+                                    const speed = totalUploadedBytes / elapsedTime;
                                     uploadSpeed.textContent = `${formatBytes(speed)}/s`;
                                 }
                             }
@@ -2035,23 +2030,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (uploadCancelled) return;
 
                     if (response.success) {
-                        // Only count this chunk if it wasn't already completed (prevents double-counting retries)
+                        // Mark chunk as completed and set full chunk size for speed calculation
                         if (chunksStatus[chunk.index] !== 'completed') {
                             chunksStatus[chunk.index] = 'completed';
-                            chunksCompleted++;
-                            uploadedBytes += chunkData.size;
+                            chunkBytesUploaded[chunk.index] = chunkData.size; // Full chunk size
                         }
-                        currentUploadingBytes -= chunkBytesUploaded; // Remove this chunk's bytes from current uploading
                         
-                        // Update progress
-                        const percentComplete = (chunksCompleted / totalChunks) * 100;
-                        progressBar.style.width = percentComplete + '%';
-                        progressText.textContent = `${Math.round(percentComplete)}%`;
+                        // Update progress based on API response
+                        if (response.progress !== undefined) {
+                            progressBar.style.width = response.progress + '%';
+                            progressText.textContent = `${Math.round(response.progress)}%`;
+                        }
                         
-                        // Update final speed
+                        // Update speed calculation (keep this exactly as before)
+                        const totalUploadedBytes = chunkBytesUploaded.reduce((sum, bytes) => sum + bytes, 0);
                         const elapsedTime = (Date.now() - startTime) / 1000;
-                        const speed = uploadedBytes / elapsedTime;
-                        uploadSpeed.textContent = `${formatBytes(speed)}/s`;
+                        if (elapsedTime > 0) {
+                            const speed = totalUploadedBytes / elapsedTime;
+                            uploadSpeed.textContent = `${formatBytes(speed)}/s`;
+                        }
 
                         if (response.completed) {
                             // Upload completed
@@ -2084,6 +2081,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         throw new Error(response.error || 'Chunk upload failed');
                     }
                 } catch (error) {
+                    // Reset bytes for this chunk on failure (for speed calculation)
+                    chunkBytesUploaded[chunk.index] = 0;
+                    
                     // Retry logic: allow up to 3 retries for non-200 responses
                     if (!uploadCancelled && chunk.retryCount < 3 && chunksStatus[chunk.index] !== 'completed') {
                         chunk.retryCount++;
