@@ -769,7 +769,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (itemToDelete) {
                 if (itemToDelete.isBatch) {
                     // Perform batch delete
-                    const pathsToDelete = Array.from(selectedItems).filter(path => path !== '..' && path !== '.');
+                    const pathsToDelete = Array.from(selectedItems).filter(path => path !== '..' && path !== '.' && path !== currentDirectory);
                     const result = await fetchAPI('/api/batch-delete', { method: 'POST', body: { paths: pathsToDelete } });
                     if (result && result.success) {
                         showToast('Selected items deleted.', 'success');
