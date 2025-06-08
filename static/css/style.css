@@ -903,6 +903,15 @@ body.light-mode {
     }
 }
 
+@keyframes progress-indeterminate {
+    0% {
+        background-position: -20px 0;
+    }
+    100% {
+        background-position: 20px 0;
+    }
+}
+
 /* Activity Log Color Coding */
 .log-action {
     font-weight: bold;

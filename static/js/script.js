@@ -844,22 +844,67 @@ document.addEventListener('DOMContentLoaded', () => {
                 const archiveName = archiveNameInput.value.trim();
                 const deleteAfterZip = deleteZippedFilesCheckbox ? deleteZippedFilesCheckbox.checked : false;
                 
-                const result = await fetchAPI('/api/zip', {
-                    method: 'POST',
-                    body: { 
-                        items: itemsToZip, 
-                        archive_name: archiveName, 
-                        output_path: currentDirectory,
-                        delete_after_zip: deleteAfterZip
-                    }
-                });
+                // Close modal first
+                closeZipModal();
+                
+                // Create progress indicator
+                const progressItem = createUploadProgressItem(`Creating ${archiveName}...`);
+                const progressBar = progressItem.querySelector('.progress-bar');
+                const progressText = progressItem.querySelector('.progress-text');
+                const uploadSpeed = progressItem.querySelector('.upload-speed');
+                uploadSpeed.style.display = 'none'; // Hide speed for zip operations
+                
+                // Set indeterminate progress animation
+                progressBar.style.background = 'linear-gradient(90deg, var(--primary-color) 25%, transparent 25%, transparent 50%, var(--primary-color) 50%, var(--primary-color) 75%, transparent 75%)';
+                progressBar.style.backgroundSize = '20px 100%';
+                progressBar.style.animation = 'progress-indeterminate 1s linear infinite';
+                progressBar.style.width = '100%';
+                progressText.textContent = 'Creating archive...';
+                
+                try {
+                    const result = await fetchAPI('/api/zip', {
+                        method: 'POST',
+                        body: { 
+                            items: itemsToZip, 
+                            archive_name: archiveName, 
+                            output_path: currentDirectory,
+                            delete_after_zip: deleteAfterZip
+                        }
+                    });
 
-                if (result && result.success) {
-                    showToast(result.message, 'success');
-                    clearAllSelections();
+                    if (result && result.success) {
+                        // Success state
+                        progressBar.style.background = 'var(--success-color)';
+                        progressBar.style.animation = 'none';
+                        progressText.textContent = 'Archive created!';
+                        showToast(result.message, 'success');
+                        clearAllSelections();
+                        
+                        // Auto-hide after 3 seconds
+                        setTimeout(() => {
+                            progressItem.style.transition = 'opacity 1s ease';
+                            progressItem.style.opacity = '0';
+                            setTimeout(() => {
+                                if (progressItem.parentNode) {
+                                    progressItem.parentNode.removeChild(progressItem);
+                                }
+                            }, 1000);
+                        }, 3000);
+                    } else {
+                        // Error state
+                        progressBar.style.background = 'var(--error-color)';
+                        progressBar.style.animation = 'none';
+                        progressText.textContent = 'Archive creation failed!';
+                        showToast(result?.error || 'Failed to create archive', 'error');
+                    }
+                } catch (error) {
+                    // Error state
+                    progressBar.style.background = 'var(--error-color)';
+                    progressBar.style.animation = 'none';
+                    progressText.textContent = 'Archive creation failed!';
+                    showToast('Failed to create archive', 'error');
                 }
             }
-            closeZipModal();
         });
     }
 
