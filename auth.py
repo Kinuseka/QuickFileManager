@@ -66,7 +66,11 @@ def login_required(f):
         if 'username' not in session:
             if request.headers.get("X-Requested-With") == "XMLHttpRequest":
                 return jsonify(error="Unauthorized", message="User not logged in."), 401
-            return redirect(url_for('login', next=request.url))
+            # Use only the path + query string, not the full URL
+            next_path = request.path
+            if request.query_string:
+                next_path += '?' + request.query_string.decode('utf-8')
+            return redirect(url_for('login', next=next_path))
         
         # Populate g.user with current user information
         g.user = get_current_user_info()
@@ -75,7 +79,11 @@ def login_required(f):
             session.clear()
             if request.headers.get("X-Requested-With") == "XMLHttpRequest":
                 return jsonify(error="Unauthorized", message="Invalid session."), 401
-            return redirect(url_for('login', next=request.url))
+            # Use only the path + query string, not the full URL
+            next_path = request.path
+            if request.query_string:
+                next_path += '?' + request.query_string.decode('utf-8')
+            return redirect(url_for('login', next=next_path))
             
         return f(*args, **kwargs)
     return decorated_function
