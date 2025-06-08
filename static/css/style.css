@@ -549,7 +549,7 @@ body.light-mode {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 35px 8px 12px; /* More right padding for close button */
+    padding: 8px 45px 8px 12px; /* Increased right padding for close button */
     margin-bottom: 8px;
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
@@ -614,16 +614,19 @@ body.light-mode {
     font-size: 0.8em;
     color: var(--text-secondary);
     min-width: 35px;
+    max-width: 80px;
     text-align: center;
     flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .upload-speed {
     font-size: 0.8em;
     color: var(--text-secondary);
-    min-width: 80px;
+    min-width: 60px;
     text-align: right;
-    margin-right: 20px;
     flex-shrink: 0;
 }
 

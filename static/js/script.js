@@ -843,19 +843,24 @@ document.addEventListener('DOMContentLoaded', () => {
             if (itemsToZip && archiveNameInput && archiveNameInput.value.trim()) {
                 const archiveName = archiveNameInput.value.trim();
                 const deleteAfterZip = deleteZippedFilesCheckbox ? deleteZippedFilesCheckbox.checked : false;
+                const itemsToZipCopy = [...itemsToZip]; // Preserve for API call
                 
-                // Close modal first
+                // Close modal (this sets itemsToZip = null for cleanup)
                 closeZipModal();
                 
                 // Create progress indicator
                 const progressItem = createUploadProgressItem(`Creating ${archiveName}...`);
+                if (!progressItem) {
+                    console.error('Failed to create progress item');
+                    return;
+                }
                 const progressBar = progressItem.querySelector('.progress-bar');
                 const progressText = progressItem.querySelector('.progress-text');
                 const uploadSpeed = progressItem.querySelector('.upload-speed');
-                uploadSpeed.style.display = 'none'; // Hide speed for zip operations
+                if (uploadSpeed) uploadSpeed.style.display = 'none'; // Hide speed for zip operations
                 
-                // Set indeterminate progress animation
-                progressBar.style.background = 'linear-gradient(90deg, var(--primary-color) 25%, transparent 25%, transparent 50%, var(--primary-color) 50%, var(--primary-color) 75%, transparent 75%)';
+                // Set indeterminate progress animation  
+                progressBar.style.background = 'linear-gradient(90deg, #007bff 25%, transparent 25%, transparent 50%, #007bff 50%, #007bff 75%, transparent 75%)';
                 progressBar.style.backgroundSize = '20px 100%';
                 progressBar.style.animation = 'progress-indeterminate 1s linear infinite';
                 progressBar.style.width = '100%';
@@ -865,7 +870,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const result = await fetchAPI('/api/zip', {
                         method: 'POST',
                         body: { 
-                            items: itemsToZip, 
+                            items: itemsToZipCopy, 
                             archive_name: archiveName, 
                             output_path: currentDirectory,
                             delete_after_zip: deleteAfterZip
@@ -874,7 +879,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (result && result.success) {
                         // Success state
-                        progressBar.style.background = 'var(--success-color)';
+                        progressBar.style.background = '#28a745';
                         progressBar.style.animation = 'none';
                         progressText.textContent = 'Archive created!';
                         showToast(result.message, 'success');
@@ -892,14 +897,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         }, 3000);
                     } else {
                         // Error state
-                        progressBar.style.background = 'var(--error-color)';
+                        progressBar.style.background = '#dc3545';
                         progressBar.style.animation = 'none';
                         progressText.textContent = 'Archive creation failed!';
                         showToast(result?.error || 'Failed to create archive', 'error');
                     }
                 } catch (error) {
                     // Error state
-                    progressBar.style.background = 'var(--error-color)';
+                    progressBar.style.background = '#dc3545';
                     progressBar.style.animation = 'none';
                     progressText.textContent = 'Archive creation failed!';
                     showToast('Failed to create archive', 'error');
@@ -1561,7 +1566,12 @@ document.addEventListener('DOMContentLoaded', () => {
         progressItem.appendChild(uploadSpeedSpan);
         progressItem.appendChild(closeButton);
         
-        if (uploadProgressArea) uploadProgressArea.appendChild(progressItem);
+        if (uploadProgressArea) {
+            uploadProgressArea.appendChild(progressItem);
+        } else {
+            console.warn('Upload progress area not found');
+            return null;
+        }
         
         return progressItem;
     }
