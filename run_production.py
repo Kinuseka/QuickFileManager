@@ -34,6 +34,18 @@ def main():
     ssl_config = config.get('ssl', {})
     ssl_enabled = bool(ssl_config.get('enabled', False))
     force_https = bool(ssl_config.get('force_https', False))
+    proxy_protocol_v2 = bool(server_config.get('proxy_protocol_v2', False))
+    proxy_allow_from = str(server_config.get('proxy_protocol_allow_from', '127.0.0.1,::1')).strip()
+
+    shared_args = [
+        "-k", "gevent",
+        "-w", "1",
+        "--worker-connections", "1000"
+    ]
+
+    if proxy_protocol_v2:
+        print(f"Proxy Protocol v2 mode enabled. Trusted senders: {proxy_allow_from}")
+        shared_args.extend(["--proxy-protocol", "--proxy-allow-from", proxy_allow_from])
     
     processes = []
     
@@ -58,10 +70,7 @@ def main():
                 "gunicorn",
                 http_target,
                 "--bind", f"{host}:{http_port}",
-                "-k", "gevent",
-                "-w", "1",
-                "--worker-connections", "1000"
-            ])
+            ] + shared_args)
             processes.append(p_http)
             
             print(f"Starting Gunicorn HTTPS Server (Main) on {host}:{https_port}...")
@@ -69,12 +78,9 @@ def main():
                 "gunicorn",
                 "app:app",
                 "--bind", f"{host}:{https_port}",
-                "-k", "gevent",
-                "-w", "1",
-                "--worker-connections", "1000",
                 "--certfile", cert_file,
                 "--keyfile", key_file
-            ])
+            ] + shared_args)
             processes.append(p_https)
             
         else:
@@ -83,10 +89,7 @@ def main():
                 "gunicorn",
                 "app:app",
                 "--bind", f"{host}:{http_port}",
-                "-k", "gevent",
-                "-w", "1",
-                "--worker-connections", "1000"
-            ])
+            ] + shared_args)
             processes.append(p_http)
             
         # Keep main thread alive waiting for subprocesses

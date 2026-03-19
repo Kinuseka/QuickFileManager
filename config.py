@@ -17,7 +17,9 @@ DEFAULT_CONFIG = {
         "domain": "",
         "host": "0.0.0.0",
         "port": 5000,
-        "ssl_port": 5001
+        "ssl_port": 5001,
+        "proxy_protocol_v2": False,
+        "proxy_protocol_allow_from": "127.0.0.1,::1"
     },
     "ssl": {
         "enabled": False,

@@ -1078,6 +1078,9 @@ if __name__ == '__main__':
     # Start the Flask-SocketIO server
     config = get_config()
     server_config = config.get('server', {})
+    if server_config.get('proxy_protocol_v2'):
+        print("WARNING: server.proxy_protocol_v2 is enabled, but app.py dev server cannot parse PROXY protocol.")
+        print("Use run_production.py with Gunicorn to receive real client IP from PROXY protocol v2.")
 
     # Prioritize Environment Variables over config.yml settings
     host = os.getenv('HOST', server_config.get('host', '0.0.0.0'))

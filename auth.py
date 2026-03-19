@@ -5,6 +5,7 @@ import datetime
 import json # Added for JSON logging
 import os   # Added for path check
 import hashlib # For generating browser identity
+import ipaddress
 
 LOG_FILE = "logs.json"
 MAX_LOG_ENTRIES = 1000 # Max number of log entries to keep
@@ -33,8 +34,51 @@ def write_logs(logs_data):
 
 # --- IP Address Helper ---
 def get_real_ip():
-    """Get the real client IP address. ProxyFix should handle proxy headers."""
-    return request.remote_addr
+    """Get the real client IP address with proxy-protocol aware fallback."""
+    config = get_config()
+    server_config = config.get('server', {})
+
+    remote_addr = request.remote_addr
+    if server_config.get('proxy_protocol_v2'):
+        # With Gunicorn --proxy-protocol, REMOTE_ADDR is sourced from PROXY header.
+        return remote_addr
+
+    # Optional trusted proxy fallback for X-Forwarded-For when not using proxy protocol.
+    trusted_raw = server_config.get('proxy_protocol_allow_from', '')
+    trusted_sources = [src.strip() for src in str(trusted_raw).split(',') if src.strip()]
+    if not trusted_sources:
+        return remote_addr
+
+    if _ip_is_trusted_proxy(remote_addr, trusted_sources):
+        xff = request.headers.get('X-Forwarded-For', '')
+        if xff:
+            first_hop = xff.split(',')[0].strip()
+            if first_hop:
+                return first_hop
+
+    return remote_addr
+
+
+def _ip_is_trusted_proxy(ip_value, trusted_sources):
+    """Check if an IP belongs to trusted proxies (single IP, CIDR, or '*')."""
+    if not ip_value:
+        return False
+
+    for trusted in trusted_sources:
+        if trusted == '*':
+            return True
+
+        try:
+            if '/' in trusted:
+                if ipaddress.ip_address(ip_value) in ipaddress.ip_network(trusted, strict=False):
+                    return True
+            elif ip_value == trusted:
+                return True
+        except ValueError:
+            # Ignore malformed entries instead of failing request handling.
+            continue
+
+    return False
 
 # --- Browser Fingerprinting ---
 def generate_browser_fingerprint():
