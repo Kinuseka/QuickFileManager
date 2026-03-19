@@ -134,12 +134,26 @@ def generate_ssl(domain, ip="0.0.0.0", port="80"):
     
     cmd = get_certbot_command(domain, ip, port)
     try:
+        is_unix_sudo = False
         # Use sudo if we are on Unix and not root
         if os.name != 'nt' and hasattr(os, 'geteuid') and os.geteuid() != 0:
             cmd = ["sudo"] + cmd
+            is_unix_sudo = True
             print("Running certbot with sudo. You may be prompted for your password.")
             
         subprocess.run(cmd, check=True)
+        
+        # If we used sudo, the generated files are owned by root.
+        # We must change ownership back to the current user so Python can read them!
+        if is_unix_sudo:
+            try:
+                uid = os.geteuid()
+                gid = os.getegid() if hasattr(os, 'getegid') else uid
+                print("Adjusting permissions on generated certificates so your user can read them...")
+                subprocess.run(["sudo", "chown", "-R", f"{uid}:{gid}", ssl_dir], check=True)
+            except Exception as e:
+                print(f"Warning: Failed to auto-adjust permissions on {ssl_dir}. You may need to manually chown it. Error: {e}")
+                
         print("\n✓ Certificates generated successfully!")
         return True
     except subprocess.CalledProcessError as e:
