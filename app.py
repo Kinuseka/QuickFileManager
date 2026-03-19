@@ -28,6 +28,56 @@ app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(24)) # Important for session management
 socketio = SocketIO(app)
 
+# Secure cookies globally if SSL is permanently enabled
+_global_config_ssl = get_config().get('ssl', {})
+if _global_config_ssl.get('enabled'):
+    app.config.update(
+        SESSION_COOKIE_SECURE=True,
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE='Lax'
+    )
+
+@app.before_request
+def enforce_https():
+    """Enforce HTTPS redirection for WSGI environments behind port-forwarding proxies."""
+    config = get_config()
+    ssl_config = config.get('ssl', {})
+    
+    # Check if HTTPS enforcement is globally enabled
+    if ssl_config.get('enabled') and ssl_config.get('force_https'):
+        # Check standard request secureness and X-Forwarded headers
+        if not request.is_secure and request.headers.get('X-Forwarded-Proto', 'http') != 'https':
+            # Validate Host header to prevent Open Redirect
+            domain = config.get('server', {}).get('domain')
+            host = request.headers.get('Host', '')
+            hostname = host.split(':')[0] if host else ''
+            
+            if domain and hostname and hostname != domain and hostname not in ['127.0.0.1', 'localhost']:
+                return "Invalid Host Header", 400
+                
+            # Redirect using the exact same host/port logic (preserves port-forwarding mappings)
+            url = request.url.replace('http://', 'https://', 1)
+            return redirect(url, code=301)
+
+# Create a global dedicated lightweight Flask app exclusively for HTTP->HTTPS redirects
+# It divorces HTTP traffic from the main app and WebSocket logic entirely
+redirect_app = Flask("redirect_app")
+
+@redirect_app.route('/', defaults={'path': ''})
+@redirect_app.route('/<path:path>')
+def redirect_all(path):
+    # Validate Host header to prevent Open Redirect
+    config = get_config()
+    domain = config.get('server', {}).get('domain')
+    host = request.headers.get('Host', '')
+    hostname = host.split(':')[0] if host else ''
+    
+    if domain and hostname and hostname != domain and hostname not in ['127.0.0.1', 'localhost']:
+        return "Invalid Host Header", 400
+        
+    url = request.url.replace('http://', 'https://', 1)
+    return redirect(url, code=301)
+
 # Initialize FileManager - it will load its own config for managed_directory
 try:
     file_manager = FileManager()
@@ -953,9 +1003,10 @@ if __name__ == '__main__':
     # Prioritize Environment Variables over config.yml settings
     host = os.getenv('HOST', server_config.get('host', '0.0.0.0'))
     port = int(os.getenv('PORT', server_config.get('port', 5000)))
+    ssl_port = int(os.getenv('SSL_PORT', server_config.get('ssl_port', 5001)))
     debug = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
     
-    print(f"Starting server on {host}:{port}")
+    print(f"Starting server on {host}")
     print(f"Debug mode: {debug}")
     
     # Check SSL configuration
@@ -972,8 +1023,20 @@ if __name__ == '__main__':
     
     try:
         if ssl_context:
-            socketio.run(app, host=host, port=port, debug=debug, ssl_context=ssl_context)
+            import threading
+            from werkzeug.serving import make_server
+            
+            print(f"Binding auxiliary HTTP Port: {port} (For redirection exclusively)")
+            # Start the HTTP server in a background thread using the globally defined redirect_app
+            http_server = make_server(host, port, redirect_app)
+            http_thread = threading.Thread(target=http_server.serve_forever)
+            http_thread.daemon = True
+            http_thread.start()
+
+            print(f"Binding primary SSL Port: {ssl_port}")
+            socketio.run(app, host=host, port=ssl_port, debug=debug, ssl_context=ssl_context)
         else:
+            print(f"Binding to HTTP Port: {port}")
             socketio.run(app, host=host, port=port, debug=debug)
     except KeyboardInterrupt:
         print("\nShutting down server...")

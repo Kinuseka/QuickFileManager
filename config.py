@@ -16,7 +16,8 @@ DEFAULT_CONFIG = {
     "server": {
         "domain": "",
         "host": "0.0.0.0",
-        "port": 5000
+        "port": 5000,
+        "ssl_port": 5001
     },
     "ssl": {
         "enabled": False,
