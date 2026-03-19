@@ -12,8 +12,48 @@ DEFAULT_CONFIG = {
         "max_concurrent_chunks": 3,  # Maximum concurrent chunks per file
         "chunk_timeout": 300,  # Timeout for chunk upload in seconds
         "max_file_size_gb": 8  # Maximum file size limit in GB
+    },
+    "server": {
+        "domain": "",
+        "host": "0.0.0.0",
+        "port": 5000
+    },
+    "ssl": {
+        "enabled": False,
+        "cert_file": "",
+        "key_file": "",
+        "force_https": False
+    },
+    "security": {
+        "csrf_enabled": True,
+        "session_timeout": 3600
     }
 }
+
+def deep_merge_and_check(default, user):
+    """
+    Recursively merges user config with default config.
+    Returns (merged_dict, was_modified)
+    """
+    merged = default.copy()
+    modified = False
+    
+    for key, value in default.items():
+        if key not in user:
+            merged[key] = value
+            modified = True
+        elif isinstance(value, dict) and isinstance(user[key], dict):
+            merged[key], sub_modified = deep_merge_and_check(value, user[key])
+            modified = modified or sub_modified
+        else:
+            merged[key] = user[key]
+            
+    # Keep any extra keys the user might have added
+    for key, value in user.items():
+        if key not in default:
+            merged[key] = value
+            
+    return merged, modified
 
 def get_config():
     """Loads configuration from YAML file, ensuring defaults and directory status."""
@@ -52,12 +92,11 @@ def get_config():
             config = DEFAULT_CONFIG.copy()
 
     # Merge with defaults to ensure all keys are present
-    final_config = DEFAULT_CONFIG.copy()
-    if isinstance(config, dict):
-        final_config.update(config)
-    else: # If config wasn't a dict for some reason
+    if not isinstance(config, dict):
         print(f"WARNING: Configuration loaded from '{CONFIG_FILE}' was not a dictionary. Using defaults.")
-        config = final_config # Ensure config is a dict for below checks
+        config = {}
+        
+    final_config, config_modified = deep_merge_and_check(DEFAULT_CONFIG, config)
 
     # Validate and ensure managed_directory logic
     managed_dir_path_from_config = final_config.get("managed_directory")
@@ -66,6 +105,7 @@ def get_config():
         print(f"WARNING: 'managed_directory' in '{CONFIG_FILE}' is missing, empty, or not a string. Using default: '{DEFAULT_CONFIG['managed_directory']}'")
         final_config["managed_directory"] = DEFAULT_CONFIG["managed_directory"]
         managed_dir_path_to_check = DEFAULT_CONFIG["managed_directory"]
+        config_modified = True
     else:
         managed_dir_path_to_check = managed_dir_path_from_config.strip()
         final_config["managed_directory"] = managed_dir_path_to_check # Store the stripped version
@@ -83,6 +123,10 @@ def get_config():
         print(f"ERROR: Path for managed_directory in '{CONFIG_FILE}' ('{path_for_creation_check}' from value '{managed_dir_path_to_check}') exists but is NOT a directory.")
     else:
         print(f"INFO: Managed directory for '{CONFIG_FILE}' ('{path_for_creation_check}' from value '{managed_dir_path_to_check}') found and is a directory.")
+        
+    if config_modified:
+        print(f"INFO: Missing or malformed configuration parameters found. Updating '{CONFIG_FILE}' explicitly.")
+        save_config(final_config)
             
     return final_config
 
