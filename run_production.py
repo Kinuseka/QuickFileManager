@@ -4,21 +4,45 @@ import subprocess
 import time
 from config import get_config
 
+DEFAULT_HTTP_PORT = 5000
+DEFAULT_HTTPS_PORT = 5001
+
+
+def _safe_int_port(value, fallback):
+    try:
+        port = int(value)
+        if 1 <= port <= 65535:
+            return port
+    except (TypeError, ValueError):
+        pass
+    return fallback
+
 def main():
     config = get_config()
     server_config = config.get('server', {})
-    
+
     host = os.getenv('HOST', server_config.get('host', '0.0.0.0'))
-    port = str(os.getenv('PORT', server_config.get('port', 5000)))
-    ssl_port = str(os.getenv('SSL_PORT', server_config.get('ssl_port', 5001)))
+    http_port = _safe_int_port(
+        os.getenv('HTTP_PORT') or os.getenv('PORT') or server_config.get('port', DEFAULT_HTTP_PORT),
+        DEFAULT_HTTP_PORT
+    )
+    https_port = _safe_int_port(
+        os.getenv('HTTPS_PORT') or os.getenv('SSL_PORT') or server_config.get('ssl_port', DEFAULT_HTTPS_PORT),
+        DEFAULT_HTTPS_PORT
+    )
     
     ssl_config = config.get('ssl', {})
-    ssl_enabled = ssl_config.get('enabled', False)
+    ssl_enabled = bool(ssl_config.get('enabled', False))
+    force_https = bool(ssl_config.get('force_https', False))
     
     processes = []
     
     try:
         if ssl_enabled:
+            if http_port == https_port:
+                print("ERROR: HTTP and HTTPS ports must be different when SSL is enabled.")
+                sys.exit(1)
+
             cert_file = ssl_config.get('cert_file')
             key_file = ssl_config.get('key_file')
             
@@ -26,22 +50,25 @@ def main():
                 print("ERROR: SSL is enabled but certificates were not found!")
                 sys.exit(1)
             
-            print(f"Starting Gunicorn HTTP Server (Redirector) on {host}:{port}...")
+            http_target = "app:redirect_app" if force_https else "app:app"
+            http_mode = "Redirector" if force_https else "Lenient (no forced HTTPS redirect)"
+
+            print(f"Starting Gunicorn HTTP Server ({http_mode}) on {host}:{http_port}...")
             p_http = subprocess.Popen([
                 "gunicorn",
-                "app:redirect_app",
-                "--bind", f"{host}:{port}",
+                http_target,
+                "--bind", f"{host}:{http_port}",
                 "-k", "gevent",
                 "-w", "1",
                 "--worker-connections", "1000"
             ])
             processes.append(p_http)
             
-            print(f"Starting Gunicorn HTTPS Server (Main) on {host}:{ssl_port}...")
+            print(f"Starting Gunicorn HTTPS Server (Main) on {host}:{https_port}...")
             p_https = subprocess.Popen([
                 "gunicorn",
                 "app:app",
-                "--bind", f"{host}:{ssl_port}",
+                "--bind", f"{host}:{https_port}",
                 "-k", "gevent",
                 "-w", "1",
                 "--worker-connections", "1000",
@@ -51,11 +78,11 @@ def main():
             processes.append(p_https)
             
         else:
-            print(f"Starting Gunicorn HTTP Server on {host}:{port}...")
+            print(f"Starting Gunicorn HTTP Server on {host}:{http_port}...")
             p_http = subprocess.Popen([
                 "gunicorn",
                 "app:app",
-                "--bind", f"{host}:{port}",
+                "--bind", f"{host}:{http_port}",
                 "-k", "gevent",
                 "-w", "1",
                 "--worker-connections", "1000"

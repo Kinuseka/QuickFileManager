@@ -15,6 +15,7 @@ import os
 import sys
 import yaml
 import subprocess
+from urllib.parse import urlsplit
 from config import get_config, save_config
 
 def print_banner():
@@ -44,22 +45,57 @@ def check_certificates(domain):
     cert_path, key_path = get_cert_path(domain)
     return os.path.exists(cert_path) and os.path.exists(key_path)
 
-def update_config_ssl(domain, ip="0.0.0.0", port="80"):
+def _safe_int_port(value, fallback):
+    try:
+        port = int(value)
+        if 1 <= port <= 65535:
+            return port
+    except (TypeError, ValueError):
+        pass
+    return fallback
+
+
+def normalize_domain_input(raw_value):
+    """Normalize user input into (public_https_domain, certbot_domain)."""
+    if not raw_value:
+        return None, None
+
+    value = raw_value.strip()
+    if not value:
+        return None, None
+
+    # Accept both bare hostnames and full URLs from the user.
+    parse_target = value if value.startswith(('http://', 'https://')) else f"//{value}"
+    parsed = urlsplit(parse_target)
+    hostname = (parsed.hostname or '').strip().lower()
+
+    if not hostname:
+        return None, None
+
+    public_domain = f"https://{hostname}"
+    return public_domain, hostname
+
+
+def update_config_ssl(certbot_domain, public_domain, ip="0.0.0.0"):
     """Update config.yml with SSL settings"""
     config = get_config()
     
     # Use relative paths for the config file to be portable
-    cert_path = f"./ssl/live/{domain}/fullchain.pem"
-    key_path = f"./ssl/live/{domain}/privkey.pem"
+    cert_path = f"./ssl/live/{certbot_domain}/fullchain.pem"
+    key_path = f"./ssl/live/{certbot_domain}/privkey.pem"
     
     # Update server configuration
     if 'server' not in config:
         config['server'] = {}
-    config['server']['domain'] = domain
+    config['server']['domain'] = public_domain
     if ip:
         config['server']['host'] = ip
-    if port:
-        config['server']['port'] = int(port) if str(port).isdigit() else port
+
+    # Keep application ports stable when enabling SSL.
+    existing_http_port = config['server'].get('port', 5000)
+    existing_https_port = config['server'].get('ssl_port', 5001)
+    config['server']['port'] = _safe_int_port(existing_http_port, 5000)
+    config['server']['ssl_port'] = _safe_int_port(existing_https_port, 5001)
     
     # Update SSL configuration
     config['ssl'] = {
@@ -70,7 +106,7 @@ def update_config_ssl(domain, ip="0.0.0.0", port="80"):
     }
     
     save_config(config)
-    print(f"✓ Updated config.yml with SSL settings and domain for {domain}")
+    print(f"✓ Updated config.yml with SSL settings and domain for {public_domain}")
     return True
 
 def get_certbot_command(domain, ip="0.0.0.0", port="80"):
@@ -180,36 +216,43 @@ def main():
     print()
     
     # Get domain name
-    domain = input("Enter your domain name (e.g., filemanager.example.com): ").strip()
-    if not domain:
-        print("Domain name is required!")
+    user_domain = input("Enter your public domain (e.g., filemanager.example.com or https://filemanager.example.com): ").strip()
+    public_domain, certbot_domain = normalize_domain_input(user_domain)
+    if not public_domain or not certbot_domain:
+        print("A valid domain is required (hostname or URL).")
         sys.exit(1)
     
-    print(f"\nDomain: {domain}")
+    print(f"\nPublic domain (saved to config): {public_domain}")
+    print(f"Certbot domain (used for certificate issuance): {certbot_domain}")
     
     config = get_config()
     server_config = config.get('server', {})
     default_ip = server_config.get('host', '0.0.0.0')
-    default_port = str(server_config.get('port', '80'))
+    default_port = "80"
     
     # Check if certificates already exist
-    if check_certificates(domain):
-        print(f"✓ Certificates found for {domain}")
-        cert_path, key_path = get_cert_path(domain)
+    if check_certificates(certbot_domain):
+        print(f"✓ Certificates found for {certbot_domain}")
+        cert_path, key_path = get_cert_path(certbot_domain)
         print(f"  Certificate: {cert_path}")
         print(f"  Private Key: {key_path}")
         
         update_choice = input("\nUpdate config.yml with these certificate paths? (y/n): ").lower()
         if update_choice == 'y':
-            update_config_ssl(domain, default_ip, default_port)
+            update_config_ssl(certbot_domain, public_domain, default_ip)
             print("\n✓ Configuration updated!")
             print("You can now start QuickFileManager with HTTPS (ensure port config is suitable):")
             print("  python app.py")
         else:
             print("\nManual configuration:")
-            print(f"ssl config:\n  enabled: true\n  cert_file: ./ssl/live/{domain}/fullchain.pem\n  key_file: ./ssl/live/{domain}/privkey.pem")
+            print("server config:")
+            print(f"  domain: {public_domain}")
+            print("ssl config:")
+            print("  enabled: true")
+            print(f"  cert_file: ./ssl/live/{certbot_domain}/fullchain.pem")
+            print(f"  key_file: ./ssl/live/{certbot_domain}/privkey.pem")
     else:
-        print(f"❌ No certificates found for {domain}")
+        print(f"❌ No certificates found for {certbot_domain}")
         print("\nCertbot standalone configuration:")
         ip = input(f"Enter listening IP for Certbot [default: {default_ip}]: ").strip()
         if not ip:
@@ -227,14 +270,14 @@ def main():
         choice = input("Choose (1-3): ").strip()
         if choice == '1':
             print()
-            if generate_ssl(domain, ip, port):
+            if generate_ssl(certbot_domain, ip, port):
                 update_choice = input("\nUpdate config.yml automatically? (y/n): ").lower()
                 if update_choice == 'y':
-                    update_config_ssl(domain, ip, port)
+                    update_config_ssl(certbot_domain, public_domain, ip)
                     print("\n✓ Setup complete! You can now start QuickFileManager.")
         elif choice == '2':
             print()
-            print_instructions(domain, ip, port)
+            print_instructions(certbot_domain, ip, port)
             print(f"\nAfter obtaining certificates, run this script again to update config.yml")
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ import mimetypes
 import threading
 import time
 import atexit
+from urllib.parse import urlsplit
 
 from config import get_config, save_config # save_config is needed for updating user SIDs
 from auth import login_required, handle_login, handle_logout, get_current_user_info, get_active_users_count, add_activity_log, read_logs, get_recent_logs, get_real_ip, generate_browser_fingerprint, get_browser_data # Added read_logs, get_recent_logs, get_real_ip, generate_browser_fingerprint, get_browser_data
@@ -28,9 +29,96 @@ app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(24)) # Important for session management
 socketio = SocketIO(app)
 
-# Secure cookies globally if SSL is permanently enabled
+DEFAULT_HTTP_PORT = 5000
+DEFAULT_HTTPS_PORT = 5001
+
+
+def _safe_int_port(value, fallback):
+    """Parse an integer TCP port and fall back when invalid."""
+    try:
+        port = int(value)
+        if 1 <= port <= 65535:
+            return port
+    except (TypeError, ValueError):
+        pass
+    return fallback
+
+
+def _get_server_ports(config):
+    """Resolve HTTP/HTTPS ports from env or config with sane defaults."""
+    server_config = config.get('server', {})
+
+    http_candidate = (
+        os.getenv('HTTP_PORT')
+        or os.getenv('PORT')
+        or server_config.get('port', DEFAULT_HTTP_PORT)
+    )
+    https_candidate = (
+        os.getenv('HTTPS_PORT')
+        or os.getenv('SSL_PORT')
+        or server_config.get('ssl_port', DEFAULT_HTTPS_PORT)
+    )
+
+    return _safe_int_port(http_candidate, DEFAULT_HTTP_PORT), _safe_int_port(https_candidate, DEFAULT_HTTPS_PORT)
+
+
+def _get_request_hostname(host_header):
+    """Extract hostname from Host header safely, including IPv6 hosts."""
+    if not host_header:
+        return ''
+    try:
+        parsed = urlsplit(f"//{host_header}")
+        return (parsed.hostname or '').lower()
+    except Exception:
+        return ''
+
+
+def _get_configured_https_base(config):
+    """Return (netloc, base_path) derived from configured server.domain."""
+    raw_domain = (config.get('server', {}).get('domain') or '').strip()
+    if not raw_domain:
+        return None, None
+
+    if not raw_domain.startswith(('http://', 'https://')):
+        raw_domain = f"https://{raw_domain}"
+
+    try:
+        parsed = urlsplit(raw_domain)
+    except Exception:
+        return None, None
+
+    if not parsed.netloc:
+        return None, None
+
+    base_path = parsed.path.rstrip('/')
+    return parsed.netloc, base_path
+
+
+def _build_https_redirect_url(config):
+    """Build HTTPS redirect URL from configured public domain, preserving path/query."""
+    target_netloc, base_path = _get_configured_https_base(config)
+    if not target_netloc:
+        return None
+
+    target_path = f"{base_path}{request.path}" if base_path else request.path
+    query = request.query_string.decode('utf-8')
+    if query:
+        return f"https://{target_netloc}{target_path}?{query}"
+    return f"https://{target_netloc}{target_path}"
+
+
+def _is_https_request():
+    """Account for direct TLS and proxy-forwarded HTTPS."""
+    if request.is_secure:
+        return True
+    forwarded_proto = request.headers.get('X-Forwarded-Proto', '')
+    first_proto = forwarded_proto.split(',')[0].strip().lower() if forwarded_proto else ''
+    return first_proto == 'https'
+
+
+# Secure cookies only when HTTPS is enforced globally.
 _global_config_ssl = get_config().get('ssl', {})
-if _global_config_ssl.get('enabled'):
+if _global_config_ssl.get('enabled') and _global_config_ssl.get('force_https'):
     app.config.update(
         SESSION_COOKIE_SECURE=True,
         SESSION_COOKIE_HTTPONLY=True,
@@ -45,19 +133,11 @@ def enforce_https():
     
     # Check if HTTPS enforcement is globally enabled
     if ssl_config.get('enabled') and ssl_config.get('force_https'):
-        # Check standard request secureness and X-Forwarded headers
-        if not request.is_secure and request.headers.get('X-Forwarded-Proto', 'http') != 'https':
-            # Validate Host header to prevent Open Redirect
-            domain = config.get('server', {}).get('domain')
-            host = request.headers.get('Host', '')
-            hostname = host.split(':')[0] if host else ''
-            
-            if domain and hostname and hostname != domain and hostname not in ['127.0.0.1', 'localhost']:
-                return "Invalid Host Header", 400
-                
-            # Redirect using the exact same host/port logic (preserves port-forwarding mappings)
-            url = request.url.replace('http://', 'https://', 1)
-            return redirect(url, code=301)
+        if not _is_https_request():
+            redirect_url = _build_https_redirect_url(config)
+            if not redirect_url:
+                return "HTTPS redirect is enabled but server.domain is missing or invalid.", 500
+            return redirect(redirect_url, code=301)
 
 # Create a global dedicated lightweight Flask app exclusively for HTTP->HTTPS redirects
 # It divorces HTTP traffic from the main app and WebSocket logic entirely
@@ -66,17 +146,16 @@ redirect_app = Flask("redirect_app")
 @redirect_app.route('/', defaults={'path': ''})
 @redirect_app.route('/<path:path>')
 def redirect_all(path):
-    # Validate Host header to prevent Open Redirect
     config = get_config()
-    domain = config.get('server', {}).get('domain')
-    host = request.headers.get('Host', '')
-    hostname = host.split(':')[0] if host else ''
-    
-    if domain and hostname and hostname != domain and hostname not in ['127.0.0.1', 'localhost']:
-        return "Invalid Host Header", 400
-        
-    url = request.url.replace('http://', 'https://', 1)
-    return redirect(url, code=301)
+    ssl_config = config.get('ssl', {})
+
+    if not (ssl_config.get('enabled') and ssl_config.get('force_https')):
+        return "HTTPS redirect is disabled", 404
+
+    redirect_url = _build_https_redirect_url(config)
+    if not redirect_url:
+        return "HTTPS redirect is enabled but server.domain is missing or invalid.", 500
+    return redirect(redirect_url, code=301)
 
 # Initialize FileManager - it will load its own config for managed_directory
 try:
@@ -999,11 +1078,10 @@ if __name__ == '__main__':
     # Start the Flask-SocketIO server
     config = get_config()
     server_config = config.get('server', {})
-    
+
     # Prioritize Environment Variables over config.yml settings
     host = os.getenv('HOST', server_config.get('host', '0.0.0.0'))
-    port = int(os.getenv('PORT', server_config.get('port', 5000)))
-    ssl_port = int(os.getenv('SSL_PORT', server_config.get('ssl_port', 5001)))
+    port, ssl_port = _get_server_ports(config)
     debug = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
     
     print(f"Starting server on {host}")
@@ -1012,6 +1090,7 @@ if __name__ == '__main__':
     # Check SSL configuration
     ssl_config = config.get('ssl', {})
     ssl_context = None
+    force_https = bool(ssl_config.get('force_https'))
     if ssl_config.get('enabled'):
         cert_file = ssl_config.get('cert_file')
         key_file = ssl_config.get('key_file')
@@ -1025,10 +1104,19 @@ if __name__ == '__main__':
         if ssl_context:
             import threading
             from werkzeug.serving import make_server
-            
-            print(f"Binding auxiliary HTTP Port: {port} (For redirection exclusively)")
-            # Start the HTTP server in a background thread using the globally defined redirect_app
-            http_server = make_server(host, port, redirect_app)
+
+            if port == ssl_port:
+                raise ValueError("HTTP and HTTPS ports must be different when SSL is enabled.")
+
+            if force_https:
+                print(f"Binding auxiliary HTTP Port: {port} (For redirection exclusively)")
+                auxiliary_wsgi_app = redirect_app
+            else:
+                print(f"Binding auxiliary HTTP Port: {port} (Lenient mode, no forced redirect)")
+                auxiliary_wsgi_app = app
+
+            # Start the auxiliary HTTP server in a background thread
+            http_server = make_server(host, port, auxiliary_wsgi_app)
             http_thread = threading.Thread(target=http_server.serve_forever)
             http_thread.daemon = True
             http_thread.start()
