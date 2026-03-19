@@ -947,19 +947,38 @@ if __name__ == '__main__':
     atexit.register(cleanup)
     
     # Start the Flask-SocketIO server
-    host = os.getenv('HOST', '0.0.0.0')
-    port = int(os.getenv('PORT', 5000))
+    config = get_config()
+    server_config = config.get('server', {})
+    
+    # Prioritize Environment Variables over config.yml settings
+    host = os.getenv('HOST', server_config.get('host', '0.0.0.0'))
+    port = int(os.getenv('PORT', server_config.get('port', 5000)))
     debug = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
     
     print(f"Starting server on {host}:{port}")
     print(f"Debug mode: {debug}")
     
+    # Check SSL configuration
+    ssl_config = config.get('ssl', {})
+    ssl_context = None
+    if ssl_config.get('enabled'):
+        cert_file = ssl_config.get('cert_file')
+        key_file = ssl_config.get('key_file')
+        if cert_file and key_file and os.path.exists(cert_file) and os.path.exists(key_file):
+            print(f"SSL enabled. Using cert: {cert_file}")
+            ssl_context = (cert_file, key_file)
+        else:
+            print("WARNING: SSL enabled in config, but certificate files not found or missing. Falling back to HTTP.")
+    
     try:
-        socketio.run(app, host=host, port=port, debug=debug)
+        if ssl_context:
+            socketio.run(app, host=host, port=port, debug=debug, ssl_context=ssl_context)
+        else:
+            socketio.run(app, host=host, port=port, debug=debug)
     except KeyboardInterrupt:
         print("\nShutting down server...")
         cleanup()
     except Exception as e:
         print(f"Server error: {e}")
         cleanup()
-        raise 
+        raise
